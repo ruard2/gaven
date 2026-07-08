@@ -77,7 +77,7 @@ export default function OrgDetail() {
       const takenLijst = org.vacancies.slice(0, 5).map((v) => `• ${v.title}`).join("\n");
       const meer = org.vacancies.length > 5 ? `\n• … en ${org.vacancies.length - 5} andere taken` : "";
       setInviteMsg(
-        `Hoi!\n\nIk nodig je uit om mee te helpen met de taakbeschrijvingen voor ${org.name}.\n\nVia deze link kun je de taken bekijken en aanpassen:\n${url}\n\nDenk hierbij aan taken zoals:\n${takenLijst}${meer}\n\nJe wijzigingen worden eerst door mij goedgekeurd voor ze live gaan — geen zorgen dus als je iets aanpast.\n\nBedankt!`
+        `Hoi!\n\nIk nodig je uit om de vacatures in de ${org.name} te bewerken of in te voegen.\n\nVia deze link kun je de taken bekijken en aanpassen:\n${url}\n\nDenk hierbij aan taken zoals:\n${takenLijst}${meer}\n\nJe wijzigingen worden eerst door mij goedgekeurd voor ze live gaan — geen zorgen dus als je iets aanpast.\n\nBedankt!`
       );
       setShowInviteModal(true);
     } catch {
@@ -135,9 +135,28 @@ export default function OrgDetail() {
               <textarea
                 value={inviteMsg}
                 onChange={(e) => setInviteMsg(e.target.value)}
-                rows={12}
+                rows={10}
                 className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 text-gray-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
+              {inviteUrl && (
+                <div className="mt-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+                  <span className="text-xs text-blue-500 flex-shrink-0">🔗</span>
+                  <a
+                    href={inviteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-700 underline truncate flex-1 hover:text-blue-900"
+                  >
+                    {inviteUrl}
+                  </a>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(inviteUrl); }}
+                    className="text-xs text-blue-500 hover:text-blue-700 flex-shrink-0 font-medium"
+                  >
+                    Kopieer
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Footer — acties */}
