@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  organizations Organization[]
+}
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  publicCode       String   @unique
+  organizationType String
+  place            String?
+  logoUrl          String?
+  primaryColor     String   @default("#2563eb")
+  welcomeText      String?
+  contactEmail     String
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  adminId          String
+  admin            Admin    @relation(fields: [adminId], references: [id])
+  vacancies        Vacancy[]
+  participants     Participant[]
+  applications     Application[]
+  inviteTokens     InviteToken[]
+}
+
+model Vacancy {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  title              String
+  category           String
+  shortDescription   String
+  longDescription    String?
+  whyValuable        String?
+  concreteTasks      String?
+  firstStep          String?
+  contactPersonName  String
+  contactPersonEmail String
+  status             String   @default("active")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  qualityWeights     VacancyQualityWeight[]
+  applications       Application[]
+  proposals          VacancyProposal[]
+}
+
+model VacancyProposal {
+  id           String   @id @default(cuid())
+  vacancyId    String
+  vacancy      Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  proposedData String
+  editorName   String?
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+}
+
+model InviteToken {
+  id             String       @id @default(cuid())
+  token          String       @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  label          String?
+  expiresAt      DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model VacancyQualityWeight {
+  id        String  @id @default(cuid())
+  vacancyId String
+  vacancy   Vacancy @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  qualityId String
+  weight    Int     @default(50)
+
+  @@unique([vacancyId, qualityId])
+}
+
+model Participant {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String
+  phone          String?
+  createdAt      DateTime @default(now())
+  profile        ParticipantProfile?
+  applications   Application[]
+}
+
+model ParticipantProfile {
+  id                   String   @id @default(cuid())
+  participantId        String   @unique
+  participant          Participant @relation(fields: [participantId], references: [id])
+  workExperienceScores String   @default("[]")
+  selectedQualityScores String  @default("[]")
+  negativePreferences  String   @default("[]")
+  completedAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Application {
+  id               String   @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  participantId    String
+  participant      Participant @relation(fields: [participantId], references: [id])
+  vacancyId        String
+  vacancy          Vacancy @relation(fields: [vacancyId], references: [id])
+  responseType     String
+  message          String?
+  availabilityNote String?
+  firstStepChoice  String?
+  status           String   @default("new")
+  createdAt        DateTime @default(now())
+}
