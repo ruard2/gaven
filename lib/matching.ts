@@ -8,6 +8,7 @@ export interface ProfileInput {
   qualities: string[];          // handmatig + bio-afgeleid samengevoegd
   negatives: string[];
   familieBonus?: string | null; // "Woord & waarheid" | "Zorg & aanwezigheid" | "Richting & structuur"
+  workExperience?: string[];    // gekozen werkervarings-categorieën
 }
 
 export interface MatchResult {
@@ -16,6 +17,25 @@ export interface MatchResult {
   stars: 1 | 2 | 3 | 4 | 5;
   matchedQualities: string[];
 }
+
+// Kwaliteiten die bij werkervaring horen (boost met 25% gewicht)
+const WORK_QUALITY_MAP: Record<string, string[]> = {
+  bestuur:        ["coordineren", "visie", "beleid", "beleid2", "netwerken", "projecten"],
+  onderwijs:      ["geloofsopvoeding", "bijbelstudie", "tieners", "kinderopvang", "spreken", "mentorschap"],
+  zorg:           ["luisteren", "empathie", "bezoeken", "bemoedigen", "pastoraat", "helpen", "rijden"],
+  administratie:  ["administratie2", "plannen", "overzicht", "boekhouding", "begroting"],
+  financien:      ["boekhouding", "begroting", "administratie2", "overzicht"],
+  communicatie:   ["schrijven", "socialmedia", "website", "spreken", "netwerken"],
+  ict:            ["ict2", "livestream", "geluid", "appen", "website"],
+  bouw:           ["klussen", "overzicht", "plannen"],
+  creatief:       ["ontwerpen", "fotografie", "website", "socialmedia", "schrijven"],
+  horeca:         ["koken", "helpen", "verbinden", "gastvrijheid"],
+  logistiek:      ["plannen", "coordineren", "overzicht", "rijden"],
+  ondernemerschap:["visie", "netwerken", "projecten", "coordineren", "evalueren"],
+  student:        ["tieners", "jeugdactiviteiten", "mentorschap", "geloofsopvoeding", "bijbelstudie", "helpen"],
+  thuis:          ["koken", "kinderopvang", "helpen", "rijden", "bemoedigen"],
+  anders:         [],
+};
 
 // Kwaliteiten die bij elke gave-familie horen
 const FAMILIE_QUALITIES: Record<string, string[]> = {
@@ -67,6 +87,14 @@ export function computeMatches(
     }
   }
 
+  // Werkervaring-boost: voeg kwaliteiten toe op basis van werkervaringscategorieën
+  const workBoost = new Set<string>();
+  for (const w of profile.workExperience ?? []) {
+    for (const q of WORK_QUALITY_MAP[w] ?? []) {
+      workBoost.add(q);
+    }
+  }
+
   // Negatieve kwaliteiten
   const negativeQualityIds = new Set(
     profile.negatives.flatMap((n) => NEGATIVE_QUALITY_MAP[n] ?? [])
@@ -88,6 +116,7 @@ export function computeMatches(
 
       const directMatch = qualitySet.has(qw.qualityId);
       const familieMatch = familieBoost.has(qw.qualityId) && !directMatch;
+      const workMatch = workBoost.has(qw.qualityId) && !directMatch && !familieMatch;
       const isNegative = negativeQualityIds.has(qw.qualityId);
 
       if (directMatch) {
@@ -97,6 +126,10 @@ export function computeMatches(
       } else if (familieMatch) {
         // Familie-bonus telt voor 40% van het gewicht
         const contribution = isNegative ? 0 : qw.weight * 0.4;
+        matchedWeight += contribution;
+      } else if (workMatch) {
+        // Werkervaring-boost telt voor 25% van het gewicht
+        const contribution = isNegative ? 0 : qw.weight * 0.25;
         matchedWeight += contribution;
       }
     }

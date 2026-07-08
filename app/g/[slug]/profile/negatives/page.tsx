@@ -28,10 +28,14 @@ export default function NegativesPage() {
 
     const bio = sessionStorage.getItem(`bio_${slug}`) || "";
     const manualQualities: string[] = JSON.parse(sessionStorage.getItem(`qualities_${slug}`) || "[]");
+    // Kwaliteiten afgeleid uit werkervaring (AI, stap 1)
+    const workQualities: string[] = JSON.parse(sessionStorage.getItem(`workQualities_${slug}`) || "[]");
+    // familieBonus kan al gezet zijn door werk-AI in stap 1
+    const existingFamilieBonus = sessionStorage.getItem(`familiebonus_${slug}`) || null;
 
     // Bio → AI → extra kwaliteiten + familie
     let bioQualities: string[] = [];
-    let familieBonus: string | null = null;
+    let familieBonus: string | null = existingFamilieBonus;
     if (bio.trim().length > 5) {
       try {
         const bioRes = await fetch("/api/public/bio-to-qualities", {
@@ -42,15 +46,16 @@ export default function NegativesPage() {
         if (bioRes.ok) {
           const bioData = await bioRes.json();
           bioQualities = bioData.qualityIds || [];
-          familieBonus = bioData.familieBonus || null;
+          // Bio-familieBonus overschrijft werk-familieBonus
+          if (bioData.familieBonus) familieBonus = bioData.familieBonus;
         }
       } catch (e) {
         console.error("Bio-to-qualities mislukt:", e);
       }
     }
 
-    // Samenvoegen — handmatige selectie + bio-afgeleid, geen duplicaten
-    const allQualities = [...new Set([...manualQualities, ...bioQualities])];
+    // Samenvoegen — handmatig + werk-AI + bio-AI, geen duplicaten
+    const allQualities = [...new Set([...manualQualities, ...workQualities, ...bioQualities])];
 
     // Opslaan voor summary-pagina en matches
     sessionStorage.setItem(`negatives_${slug}`, JSON.stringify(selected));
@@ -63,7 +68,7 @@ export default function NegativesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         participantId,
-        workExperience: [],
+        workExperience: workQualities,
         qualities: allQualities,
         negatives: selected,
       }),

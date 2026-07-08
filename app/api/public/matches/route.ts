@@ -24,8 +24,11 @@ export async function GET(req: NextRequest) {
     include: { qualityWeights: true },
   });
 
+  const manualQualities: string[] = JSON.parse(participant.profile.selectedQualityScores || "[]");
+  const workQualities: string[] = JSON.parse(participant.profile.workExperienceScores || "[]");
+
   const profile = {
-    qualities: JSON.parse(participant.profile.selectedQualityScores || "[]"),
+    qualities: [...new Set([...manualQualities, ...workQualities])],
     negatives: JSON.parse(participant.profile.negativePreferences || "[]"),
     familieBonus: familieBonus || null,
   };
