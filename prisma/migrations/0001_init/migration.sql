@@ -1,5 +1,3 @@
-﻿
-System.Management.Automation.RemoteException
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 -- CreateTable
@@ -123,34 +121,22 @@ CREATE UNIQUE INDEX "VacancyQualityWeight_vacancyId_qualityId_key" ON "VacancyQu
 -- CreateIndex
 CREATE UNIQUE INDEX "ParticipantProfile_participantId_key" ON "ParticipantProfile"("participantId");
 -- AddForeignKey
-ALTER TABLE "Organization" ADD CONSTRAINT "Organization_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "Admin"("id") 
-ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Organization" ADD CONSTRAINT "Organization_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "Admin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "Vacancy" ADD CONSTRAINT "Vacancy_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organizat
-ion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Vacancy" ADD CONSTRAINT "Vacancy_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "VacancyProposal" ADD CONSTRAINT "VacancyProposal_vacancyId_fkey" FOREIGN KEY ("vacancyId") REFERENCES "Vac
-ancy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "VacancyProposal" ADD CONSTRAINT "VacancyProposal_vacancyId_fkey" FOREIGN KEY ("vacancyId") REFERENCES "Vacancy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "InviteToken" ADD CONSTRAINT "InviteToken_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "O
-rganization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "InviteToken" ADD CONSTRAINT "InviteToken_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "VacancyQualityWeight" ADD CONSTRAINT "VacancyQualityWeight_vacancyId_fkey" FOREIGN KEY ("vacancyId") REFER
-ENCES "Vacancy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "VacancyQualityWeight" ADD CONSTRAINT "VacancyQualityWeight_vacancyId_fkey" FOREIGN KEY ("vacancyId") REFERENCES "Vacancy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "Participant" ADD CONSTRAINT "Participant_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "O
-rganization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Participant" ADD CONSTRAINT "Participant_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "ParticipantProfile" ADD CONSTRAINT "ParticipantProfile_participantId_fkey" FOREIGN KEY ("participantId") R
-EFERENCES "Participant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ParticipantProfile" ADD CONSTRAINT "ParticipantProfile_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "Participant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "Application" ADD CONSTRAINT "Application_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "O
-rganization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Application" ADD CONSTRAINT "Application_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "Application" ADD CONSTRAINT "Application_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "Par
-ticipant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Application" ADD CONSTRAINT "Application_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "Participant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 -- AddForeignKey
-ALTER TABLE "Application" ADD CONSTRAINT "Application_vacancyId_fkey" FOREIGN KEY ("vacancyId") REFERENCES "Vacancy"("i
-d") ON DELETE RESTRICT ON UPDATE CASCADE;
-
-
+ALTER TABLE "Application" ADD CONSTRAINT "Application_vacancyId_fkey" FOREIGN KEY ("vacancyId") REFERENCES "Vacancy"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
