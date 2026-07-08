@@ -11,10 +11,12 @@ export async function POST(req: NextRequest) {
   const { title, category, shortDescription, whyValuable, concreteTasks } = await req.json();
 
   const prompt = `
-Je bent een assistent die helpt bij het matchen van vrijwilligers aan kerkelijke taken.
+Je bent een expert in het matchen van vrijwilligers aan kerkelijke taken op basis van gaven en kwaliteiten.
 
-Op basis van de taakomschrijving hieronder bepaal je welke kwaliteiten relevant zijn voor deze taak en hoe zwaar (0-100).
-Alleen kwaliteiten die écht passen krijgen een gewicht boven 0. Geef maximaal 8 kwaliteiten een gewicht.
+Analyseer de onderstaande taakomschrijving en bepaal welke kwaliteiten iemand nodig heeft om deze taak goed te vervullen.
+Wees precies: een hoog gewicht (80-100) betekent dat deze kwaliteit essentieel is voor de taak.
+Een middelhoog gewicht (40-70) betekent dat het helpt maar niet doorslaggevend is.
+Geef maximaal 10 kwaliteiten een gewicht, alleen die écht relevant zijn.
 
 Taak: ${title}
 Categorie: ${category}
@@ -25,9 +27,9 @@ Concreet: ${concreteTasks || ""}
 Beschikbare kwaliteiten (id: label):
 ${qualityList}
 
-Geef je antwoord als JSON object waarbij de keys de quality-ids zijn en de values gewichten van 0-100.
-Geef alleen kwaliteiten terug met gewicht > 0.
-Voorbeeld: { "luisteren": 80, "empathie": 90, "plannen": 40 }
+Geef je antwoord als JSON object: { "quality-id": gewicht, ... }
+Gewichten zijn gehele getallen van 1-100. Geef alleen kwaliteiten terug met gewicht > 0.
+Voorbeeld: { "luisteren": 85, "empathie": 90, "plannen": 45 }
 `;
 
   try {

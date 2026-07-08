@@ -29,7 +29,7 @@ const WORK_QUALITY_MAP: Record<string, string[]> = {
   ict:            ["ict2", "livestream", "geluid", "appen", "website"],
   bouw:           ["klussen", "overzicht", "plannen"],
   creatief:       ["ontwerpen", "fotografie", "website", "socialmedia", "schrijven"],
-  horeca:         ["koken", "helpen", "verbinden", "gastvrijheid"],
+  horeca:         ["koken", "helpen", "verbinden"],
   logistiek:      ["plannen", "coordineren", "overzicht", "rijden"],
   ondernemerschap:["visie", "netwerken", "projecten", "coordineren", "evalueren"],
   student:        ["tieners", "jeugdactiviteiten", "mentorschap", "geloofsopvoeding", "bijbelstudie", "helpen"],
@@ -40,7 +40,7 @@ const WORK_QUALITY_MAP: Record<string, string[]> = {
 // Kwaliteiten die bij elke gave-familie horen
 const FAMILIE_QUALITIES: Record<string, string[]> = {
   "Woord & waarheid": [
-    "schrijven", "spreken", "bijbelstudie", "gebed", "evangeliseren",
+    "schrijven", "spreken", "bijbelstudie", "gebed",
     "socialmedia", "website", "pastoraat", "geloofsopvoeding",
   ],
   "Zorg & aanwezigheid": [

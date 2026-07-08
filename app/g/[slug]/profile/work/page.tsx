@@ -24,10 +24,10 @@ export default function WorkPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/public/bio-to-qualities", {
+      const res = await fetch("/api/public/work-to-qualities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bio }),
+        body: JSON.stringify({ work: bio }),
       });
       const data = res.ok ? await res.json() : {};
       // Store raw bio for display + AI-derived quality IDs for matching
