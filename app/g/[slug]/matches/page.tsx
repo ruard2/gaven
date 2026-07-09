@@ -131,6 +131,19 @@ export default function MatchesPage() {
             )}
           </>
         )}
+
+        {/* Already a volunteer? */}
+        <div className="mt-8 bg-white rounded-2xl border border-gray-200 p-5 text-center">
+          <p className="text-sm font-medium text-gray-700 mb-1">Ben je al actief als vrijwilliger?</p>
+          <p className="text-xs text-gray-400 mb-3">Laat het weten zodat de coördinator het weet en je profiel compleet is.</p>
+          <Link href={`/g/${slug}/doetal`}
+            className="inline-block px-5 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors hover:text-white"
+            style={{ borderColor: org.primaryColor, color: org.primaryColor }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = org.primaryColor; (e.currentTarget as HTMLAnchorElement).style.color = "#fff"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = ""; (e.currentTarget as HTMLAnchorElement).style.color = org.primaryColor; }}>
+            Ik doe al een taak →
+          </Link>
+        </div>
       </div>
     </main>
   );

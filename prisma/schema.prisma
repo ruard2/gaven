@@ -34,12 +34,41 @@ model Organization {
   participants     Participant[]
   applications     Application[]
   inviteTokens     InviteToken[]
+  coordinators     Coordinator[]
+}
+
+model Coordinator {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  name            String
+  email           String
+  passwordHash    String?
+  inviteToken     String?  @unique
+  inviteExpiresAt DateTime?
+  status          String   @default("invited")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  vacancies       Vacancy[]
+  resetTokens     CoordinatorResetToken[]
+}
+
+model CoordinatorResetToken {
+  id            String      @id @default(cuid())
+  coordinatorId String
+  coordinator   Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+  token         String      @unique
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime    @default(now())
 }
 
 model Vacancy {
   id                 String   @id @default(cuid())
   organizationId     String
   organization       Organization @relation(fields: [organizationId], references: [id])
+  coordinatorId      String?
+  coordinator        Coordinator? @relation(fields: [coordinatorId], references: [id])
   title              String
   category           String
   shortDescription   String
@@ -55,6 +84,7 @@ model Vacancy {
   qualityWeights     VacancyQualityWeight[]
   applications       Application[]
   proposals          VacancyProposal[]
+  memberships        VacancyMembership[]
 }
 
 model VacancyProposal {
@@ -65,6 +95,18 @@ model VacancyProposal {
   editorName   String?
   status       String   @default("pending")
   createdAt    DateTime @default(now())
+}
+
+model VacancyMembership {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  vacancyId     String
+  vacancy       Vacancy     @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  description   String?
+  createdAt     DateTime    @default(now())
+
+  @@unique([participantId, vacancyId])
 }
 
 model InviteToken {
@@ -97,6 +139,7 @@ model Participant {
   createdAt      DateTime @default(now())
   profile        ParticipantProfile?
   applications   Application[]
+  memberships    VacancyMembership[]
 }
 
 model ParticipantProfile {

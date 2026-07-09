@@ -4,6 +4,12 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
+interface CoordinatorVacancy { id: string; title: string; }
+interface Coordinator {
+  id: string; name: string; email: string; status: string;
+  vacancies: CoordinatorVacancy[];
+}
+
 interface Org {
   id: string;
   name: string;
@@ -32,6 +38,12 @@ export default function OrgDetail() {
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [pendingProposals, setPendingProposals] = useState(0);
   const [inviteError, setInviteError] = useState("");
+  const [coordinators, setCoordinators] = useState<Coordinator[]>([]);
+  const [showCoordModal, setShowCoordModal] = useState(false);
+  const [coordForm, setCoordForm] = useState({ name: "", email: "", vacancyIds: [] as string[] });
+  const [coordSaving, setCoordSaving] = useState(false);
+  const [coordMsg, setCoordMsg] = useState("");
+  const [editingCoord, setEditingCoord] = useState<Coordinator | null>(null);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl = org ? `${appUrl}/g/${org.slug}` : "";
@@ -49,6 +61,10 @@ export default function OrgDetail() {
           fetch(`/api/admin/organizations/${data.id}/proposals`)
             .then((r) => r.ok ? r.json() : [])
             .then((proposals) => { if (Array.isArray(proposals)) setPendingProposals(proposals.length); })
+            .catch(() => {});
+          fetch(`/api/admin/organizations/${data.id}/coordinators`)
+            .then((r) => r.ok ? r.json() : [])
+            .then((list) => { if (Array.isArray(list)) setCoordinators(list); })
             .catch(() => {});
         }
       })
@@ -103,6 +119,46 @@ export default function OrgDetail() {
     const subject = encodeURIComponent(`Uitnodiging: taken bewerken voor ${org?.name}`);
     const body = encodeURIComponent(inviteMsg);
     window.open(`mailto:?subject=${subject}&body=${body}`);
+  }
+
+  async function addCoordinator() {
+    if (!org || !coordForm.name.trim() || !coordForm.email.trim()) return;
+    setCoordSaving(true);
+    const res = await fetch(`/api/admin/organizations/${org.id}/coordinators`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(coordForm),
+    });
+    const d = await res.json();
+    if (d.id) {
+      setCoordinators((prev) => [...prev, d]);
+      setShowCoordModal(false);
+      setCoordForm({ name: "", email: "", vacancyIds: [] });
+      setCoordMsg("Coördinator uitgenodigd! Ze ontvangen een activatielink.");
+      setTimeout(() => setCoordMsg(""), 4000);
+    }
+    setCoordSaving(false);
+  }
+
+  async function deleteCoordinator(coordId: string) {
+    if (!confirm("Coördinator verwijderen?")) return;
+    await fetch(`/api/admin/coordinators/${coordId}`, { method: "DELETE" });
+    setCoordinators((prev) => prev.filter((c) => c.id !== coordId));
+  }
+
+  async function resendInvite(coordId: string) {
+    await fetch(`/api/admin/coordinators/${coordId}`, { method: "POST" });
+    setCoordMsg("Nieuwe uitnodigingslink verstuurd!");
+    setTimeout(() => setCoordMsg(""), 3000);
+  }
+
+  function toggleVacancy(vacancyId: string) {
+    setCoordForm((f) => ({
+      ...f,
+      vacancyIds: f.vacancyIds.includes(vacancyId)
+        ? f.vacancyIds.filter((id) => id !== vacancyId)
+        : [...f.vacancyIds, vacancyId],
+    }));
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Laden…</p></div>;
@@ -337,7 +393,97 @@ export default function OrgDetail() {
           </div>
         </div>
 
+        {/* Coordinators */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Coördinatoren</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Geef iemand toegang tot hun eigen taken via een eigen dashboard.</p>
+            </div>
+            <button onClick={() => { setCoordForm({ name: "", email: "", vacancyIds: [] }); setShowCoordModal(true); }}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+              + Toevoegen
+            </button>
+          </div>
+
+          {coordMsg && <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-700">{coordMsg}</div>}
+
+          {coordinators.length === 0 ? (
+            <p className="text-sm text-gray-400 py-2">Nog geen coördinatoren toegevoegd.</p>
+          ) : (
+            <div className="space-y-3">
+              {coordinators.map((c) => (
+                <div key={c.id} className="border border-gray-200 rounded-xl px-4 py-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 text-sm">{c.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          c.status === "active" ? "bg-green-100 text-green-700" :
+                          c.status === "invited" ? "bg-amber-100 text-amber-700" :
+                          "bg-gray-100 text-gray-500"
+                        }`}>{c.status === "active" ? "Actief" : c.status === "invited" ? "Uitgenodigd" : "Inactief"}</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{c.email}</p>
+                      {c.vacancies.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">{c.vacancies.map((v) => v.title).join(", ")}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {c.status === "invited" && (
+                        <button onClick={() => resendInvite(c.id)} className="text-xs text-blue-500 hover:underline">Opnieuw sturen</button>
+                      )}
+                      <button onClick={() => deleteCoordinator(c.id)} className="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </main>
+
+      {/* Coordinator modal */}
+      {showCoordModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCoordModal(false); }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="font-bold text-gray-900 mb-1">Coördinator toevoegen</h2>
+            <p className="text-sm text-gray-500 mb-4">De coördinator ontvangt een e-mail om een account aan te maken.</p>
+            <div className="space-y-3">
+              <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="Naam"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="E-mailadres"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {org.vacancies.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-2">Koppel taken (optioneel):</p>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {org.vacancies.map((v) => (
+                      <label key={v.id} className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={coordForm.vacancyIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <span className="text-sm text-gray-700">{v.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={addCoordinator} disabled={coordSaving || !coordForm.name.trim() || !coordForm.email.trim()}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {coordSaving ? "Uitnodigen…" : "Uitnodigen"}
+              </button>
+              <button onClick={() => setShowCoordModal(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
