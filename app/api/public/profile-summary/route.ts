@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { QUALITY_CATEGORIES, NEGATIVE_PREFERENCES } from "@/lib/qualities";
+import { getGiftsForFamilie } from "@/lib/gifts";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -23,8 +24,13 @@ export async function POST(req: NextRequest) {
     .map((id: string) => NEGATIVE_PREFERENCES.find((n) => n.id === id)?.label)
     .filter(Boolean) as string[];
 
-  const familieHint = familieBonus
-    ? `De gave-familie is al bepaald als: "${familieBonus}". Gebruik dit tenzij de kwaliteiten duidelijk iets anders suggereren.`
+  const resolvedFamilie = familieBonus || null;
+  const biblicalFamily  = resolvedFamilie ? getGiftsForFamilie(resolvedFamilie) : null;
+  const biblicalLabel   = biblicalFamily?.label ?? null;
+  const biblicalGiftNames = biblicalFamily?.gifts.map((g) => g.name).join(", ") ?? "";
+
+  const familieHint = resolvedFamilie
+    ? `De gave-familie is al bepaald als: "${resolvedFamilie}" (${biblicalLabel ?? ""}). Bijbehorende bijbelse gaven zijn: ${biblicalGiftNames}. Gebruik deze taal waar passend.`
     : "";
 
   const prompt = `
@@ -40,7 +46,7 @@ ${familieHint}
 
 INSTRUCTIES:
 1. De "openingszin" is een krachtige, specifieke zin die direct verwijst naar wat ECHT bij DEZE persoon past — noem minimaal één concrete gave. Geen generieke zinnen als "voor anderen klaarstaat".
-2. De "schets" (2-3 zinnen) verbindt het dagelijks leven en werk met de gekozen gaven. Benoem concreet welke talenten zichtbaar zijn. Schrijf persoonlijk maar niet overdreven.
+2. De "schets" (2-3 zinnen) verbindt het dagelijks leven en werk met de gekozen gaven. Gebruik indien passend bijbelse gave-taal (${biblicalLabel ? `"${biblicalLabel} karakter"` : "priesterlijk/profetisch/koninklijk"}). Schrijf persoonlijk maar niet overdreven.
 3. De "highlights" zijn 3 tot 4 korte steekwoorden of zinsdelen die de kern-gaven samenvatten (max 5 woorden elk). Kies de meest onderscheidende gaven uit de lijst.
 4. De "familie" sluit aan bij de bovengenoemde gave-familie als die beschikbaar is.
 5. Het "bijbelvers" sluit specifiek aan bij de dominante gaven van deze persoon.

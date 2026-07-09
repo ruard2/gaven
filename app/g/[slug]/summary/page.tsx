@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { getGiftsForFamilie } from "@/lib/gifts";
 
 interface Org { name: string; primaryColor: string; }
 
@@ -34,6 +35,7 @@ export default function SummaryPage() {
   const [org, setOrg] = useState<Org | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [visible, setVisible] = useState(false);
+  const [showAllGifts, setShowAllGifts] = useState(false);
 
   useEffect(() => {
     const participantId = sessionStorage.getItem(`participant_${slug}`);
@@ -71,10 +73,14 @@ export default function SummaryPage() {
     );
   }
 
-  const familieIcon  = FAMILIE_ICON[summary.familie]  || "✨";
-  const familieColor = FAMILIE_COLOR[summary.familie] || "#374151";
-  const highlights   = summary.highlights?.length ? summary.highlights : [];
-  const chips        = summary.qualityLabels?.slice(0, 12) ?? [];
+  const familieIcon    = FAMILIE_ICON[summary.familie]  || "✨";
+  const familieColor   = FAMILIE_COLOR[summary.familie] || "#374151";
+  const highlights     = summary.highlights?.length ? summary.highlights : [];
+  const chips          = summary.qualityLabels?.slice(0, 12) ?? [];
+  const biblicalFamily = getGiftsForFamilie(summary.familie);
+  const giftsToShow    = showAllGifts
+    ? (biblicalFamily?.gifts ?? [])
+    : (biblicalFamily?.gifts.slice(0, 3) ?? []);
 
   return (
     <main className="min-h-screen bg-gray-50 py-10 px-5">
@@ -138,6 +144,42 @@ export default function SummaryPage() {
         >
           <p className="text-gray-700 leading-relaxed text-[15px]">{summary.schets}</p>
         </div>
+
+        {/* Bijbelse gaven */}
+        {biblicalFamily && (
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-center mb-3"
+              style={{ color: familieColor }}>
+              {biblicalFamily.label}e gaven — herken je dit?
+            </p>
+            <div className="space-y-2">
+              {giftsToShow.map((gift) => (
+                <div
+                  key={gift.id}
+                  className="rounded-xl px-4 py-3"
+                  style={{ backgroundColor: familieColor + "0d", border: `1px solid ${familieColor}1a` }}
+                >
+                  <p className="font-semibold text-gray-900 text-sm">{gift.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">{gift.description}</p>
+                  <p className="text-[11px] mt-1 font-medium" style={{ color: familieColor + "bb" }}>
+                    {gift.scripture}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {(biblicalFamily.gifts.length > 3) && (
+              <button
+                onClick={() => setShowAllGifts((v) => !v)}
+                className="mt-2 w-full text-xs py-2 rounded-xl transition-colors"
+                style={{ color: familieColor, backgroundColor: familieColor + "0a" }}
+              >
+                {showAllGifts
+                  ? "Toon minder"
+                  : `Toon alle ${biblicalFamily.gifts.length} ${biblicalFamily.label.toLowerCase()}e gaven`}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Alle gaven als kleine chips */}
         {chips.length > 0 && (
