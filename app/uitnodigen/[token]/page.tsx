@@ -89,6 +89,17 @@ export default function InviteLanding() {
             </Link>
           ))}
         </div>
+
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <Link
+            href={`/uitnodigen/${token}/vacatures/nieuw`}
+            className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-white border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+          >
+            <span className="text-lg leading-none">+</span>
+            Nieuwe taak voorstellen
+          </Link>
+          <p className="text-xs text-gray-400 text-center mt-2">Jouw voorstel wordt ter goedkeuring ingediend bij de beheerder.</p>
+        </div>
       </main>
     </div>
   );

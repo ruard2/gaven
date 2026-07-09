@@ -15,24 +15,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { action } = await req.json(); // "approve" | "reject"
 
+  const data = JSON.parse(proposal.proposedData) as Record<string, string | boolean>;
+  const isNewVacancy = data.isNewVacancy === true;
+
   if (action === "approve") {
-    const data = JSON.parse(proposal.proposedData) as Record<string, string>;
-    const { title, shortDescription, whyValuable, concreteTasks, firstStep } = data;
-
-    await prisma.vacancy.update({
-      where: { id: proposal.vacancyId },
-      data: {
-        ...(title && { title }),
-        ...(shortDescription && { shortDescription }),
-        ...(whyValuable !== undefined && { whyValuable }),
-        ...(concreteTasks !== undefined && { concreteTasks }),
-        ...(firstStep !== undefined && { firstStep }),
-      },
-    });
-
+    if (isNewVacancy) {
+      // Activate the pending vacancy without overwriting its data
+      await prisma.vacancy.update({ where: { id: proposal.vacancyId }, data: { status: "active" } });
+    } else {
+      const { title, shortDescription, whyValuable, concreteTasks, firstStep } = data as Record<string, string>;
+      await prisma.vacancy.update({
+        where: { id: proposal.vacancyId },
+        data: {
+          ...(title && { title }),
+          ...(shortDescription && { shortDescription }),
+          ...(whyValuable !== undefined && { whyValuable }),
+          ...(concreteTasks !== undefined && { concreteTasks }),
+          ...(firstStep !== undefined && { firstStep }),
+        },
+      });
+    }
     await prisma.vacancyProposal.update({ where: { id }, data: { status: "approved" } });
   } else {
     await prisma.vacancyProposal.update({ where: { id }, data: { status: "rejected" } });
+    // Delete the pending vacancy placeholder if this was a new-vacancy proposal
+    if (isNewVacancy) {
+      await prisma.vacancy.delete({ where: { id: proposal.vacancyId } });
+    }
   }
 
   return NextResponse.json({ ok: true });
