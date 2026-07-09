@@ -43,7 +43,7 @@ async function sendViaSmtp(to: string, subject: string, html: string, fromName: 
   });
 }
 
-async function send(to: string, subject: string, html: string, fromName: string) {
+export async function send(to: string, subject: string, html: string, fromName: string) {
   if (process.env.BREVO_API_KEY) {
     await sendViaBrevo(to, subject, html, fromName);
   } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
