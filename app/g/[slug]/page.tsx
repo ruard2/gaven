@@ -1,9 +1,33 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import type { Metadata } from "next";
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const org = await prisma.organization.findFirst({
+    where: { OR: [{ slug }, { publicCode: slug }], isActive: true },
+    select: { name: true, place: true, welcomeText: true, organizationType: true },
+  });
+  if (!org) return { title: "Gavenroute" };
+
+  const description = org.welcomeText || "Ontdek waar jouw gaven kunnen dienen. Vul in enkele minuten je profiel in.";
+
+  return {
+    title: `${org.name} — Gavenroute`,
+    description,
+    openGraph: {
+      title: `${org.name} — Gavenroute`,
+      description,
+      siteName: "Gavenroute",
+      locale: "nl_NL",
+      type: "website",
+    },
+  };
 }
 
 export default async function GroupPage({ params }: Props) {

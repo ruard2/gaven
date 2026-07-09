@@ -93,6 +93,7 @@ export default function NegativesPage() {
           <div className="h-1.5 flex-1 rounded-full bg-gray-200" />
         </div>
 
+        <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-gray-600 mb-4 block">← Terug</button>
         <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>
           Stap 3 van 3
         </p>

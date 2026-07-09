@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { QUALITY_CATEGORIES } from "@/lib/qualities";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -8,6 +9,9 @@ const allQualities = QUALITY_CATEGORIES.flatMap((c) => c.qualities);
 const qualityList = allQualities.map((q) => `${q.id}: ${q.label}`).join("\n");
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit(getIp(req), 15)) {
+    return NextResponse.json({ error: "Te veel verzoeken" }, { status: 429 });
+  }
   const { bio } = await req.json();
 
   if (!bio || bio.trim().length < 5) {

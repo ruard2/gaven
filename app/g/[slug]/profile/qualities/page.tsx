@@ -39,6 +39,7 @@ export default function QualitiesPage() {
           ))}
         </div>
 
+        <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-gray-600 mb-4 block">← Terug</button>
         <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>Stap 2 van 3</p>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Welke kwaliteiten herken jij in jezelf?</h1>
         <p className="text-sm text-gray-500 mb-5">Klik een categorie open en vink aan wat bij jou past.</p>

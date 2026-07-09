@@ -40,8 +40,8 @@ const STAR_LABELS: Record<number, { label: string; color: string }> = {
   5: { label: "Sterke match", color: "#16a34a" },
   4: { label: "Goede match", color: "#2563eb" },
   3: { label: "Mogelijke match", color: "#7c3aed" },
-  2: { label: "Beperkte match", color: "#9ca3af" },
-  1: { label: "Beperkte match", color: "#9ca3af" },
+  2: { label: "Kan jij doen", color: "#d97706" },
+  1: { label: "Minder geschikt", color: "#9ca3af" },
 };
 
 export default function MatchesPage() {

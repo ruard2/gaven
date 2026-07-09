@@ -38,25 +38,21 @@ export async function POST(req: NextRequest) {
     (id: string) => allQualities.find((q) => q.id === id)?.label || id
   );
 
-  // Send email to contact person
-  try {
-    await sendApplicationEmail({
-      contactPersonEmail: vacancy.contactPersonEmail,
-      contactPersonName: vacancy.contactPersonName,
-      vacancyTitle: vacancy.title,
-      organizationName: vacancy.organization.name,
-      participantName: participant.name,
-      participantEmail: participant.email,
-      participantPhone: participant.phone,
-      responseType,
-      message,
-      firstStepChoice,
-      availabilityNote,
-      matchedQualities: qualityLabels,
-    });
-  } catch (e) {
-    console.error("Email error:", e);
-  }
+  // E-mail versturen zonder de response te blokkeren (fire-and-forget)
+  sendApplicationEmail({
+    contactPersonEmail: vacancy.contactPersonEmail,
+    contactPersonName: vacancy.contactPersonName,
+    vacancyTitle: vacancy.title,
+    organizationName: vacancy.organization.name,
+    participantName: participant.name,
+    participantEmail: participant.email,
+    participantPhone: participant.phone,
+    responseType,
+    message,
+    firstStepChoice,
+    availabilityNote,
+    matchedQualities: qualityLabels,
+  }).catch((e) => console.error("Email error:", e));
 
   return NextResponse.json({ applicationId: application.id }, { status: 201 });
 }

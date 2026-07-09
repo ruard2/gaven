@@ -82,15 +82,16 @@ export default function VacancyDetail() {
 
         {topQualities.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Kwaliteiten die passen bij deze taak</h2>
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Past bij wie</h2>
             <div className="flex flex-wrap gap-2">
               {topQualities.map((q) => (
-                <div key={q.qualityId} className="flex items-center gap-1.5">
-                  <div className="h-1.5 rounded-full w-12 bg-gray-200 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${q.weight}%`, backgroundColor: color }} />
-                  </div>
-                  <span className="text-xs text-gray-600">{q.label}</span>
-                </div>
+                <span
+                  key={q.qualityId}
+                  className="px-3 py-1.5 rounded-full text-sm font-medium text-white"
+                  style={{ backgroundColor: color }}
+                >
+                  {q.label}
+                </span>
               ))}
             </div>
           </div>

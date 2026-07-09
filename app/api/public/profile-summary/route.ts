@@ -1,69 +1,90 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { QUALITY_CATEGORIES, NEGATIVE_PREFERENCES } from "@/lib/qualities";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const allQualities = QUALITY_CATEGORIES.flatMap((c) => c.qualities);
 
 export async function POST(req: NextRequest) {
-  const { bio, qualities, negatives, name } = await req.json();
+  if (!rateLimit(getIp(req), 10)) {
+    return NextResponse.json({ error: "Te veel verzoeken" }, { status: 429 });
+  }
+  const { bio, workbio, qualities, allQualityIds, negatives, name, familieBonus } = await req.json();
 
-  const qualityLabels = (qualities as string[])
-    .map((id) => allQualities.find((q) => q.id === id)?.label)
-    .filter(Boolean);
+  // allQualityIds = handmatig + werk-AI gecombineerd (meest volledig)
+  const qualityIds: string[] = allQualityIds?.length ? allQualityIds : (qualities ?? []);
+  const qualityLabels = qualityIds
+    .map((id: string) => allQualities.find((q) => q.id === id)?.label)
+    .filter(Boolean) as string[];
 
-  const negativeLabels = (negatives as string[])
-    .map((id) => NEGATIVE_PREFERENCES.find((n) => n.id === id)?.label)
-    .filter(Boolean);
+  const negativeLabels = ((negatives ?? []) as string[])
+    .map((id: string) => NEGATIVE_PREFERENCES.find((n) => n.id === id)?.label)
+    .filter(Boolean) as string[];
+
+  const familieHint = familieBonus
+    ? `De gave-familie is al bepaald als: "${familieBonus}". Gebruik dit tenzij de kwaliteiten duidelijk iets anders suggereren.`
+    : "";
 
   const prompt = `
-Je bent een vriendelijke assistent die mensen helpt hun plek te vinden in een kerkgemeenschap.
+Je schrijft een warm, persoonlijk gavenprofiel voor een gemeentelid van een kerk.
 
-Op basis van de volgende informatie over een gemeentelid schrijf je een korte, warme karakterschets.
-De toon is persoonlijk, herkenbaar, niet overdreven en niet zweverig.
-Geen psychologisch jargon. Schrijf alsof je de persoon een beetje kent.
+OVER DEZE PERSOON:
+- Naam: ${name || "Gemeentelid"}
+- Dagelijks leven (eigen woorden): "${bio || "niet ingevuld"}"
+- Werk of studie: "${workbio || "niet ingevuld"}"
+- Gekozen gaven en kwaliteiten: ${qualityLabels.join(", ") || "geen opgegeven"}
+- Wat minder bij hen past: ${negativeLabels.join(", ") || "niets aangegeven"}
+${familieHint}
 
-Naam: ${name}
-Dagelijks leven (eigen woorden): "${bio || "niet ingevuld"}"
-Kwaliteiten die bij hen passen: ${qualityLabels.join(", ") || "niet ingevuld"}
-Wat minder past: ${negativeLabels.join(", ") || "niets aangegeven"}
+INSTRUCTIES:
+1. De "openingszin" is een krachtige, specifieke zin die direct verwijst naar wat ECHT bij DEZE persoon past — noem minimaal één concrete gave. Geen generieke zinnen als "voor anderen klaarstaat".
+2. De "schets" (2-3 zinnen) verbindt het dagelijks leven en werk met de gekozen gaven. Benoem concreet welke talenten zichtbaar zijn. Schrijf persoonlijk maar niet overdreven.
+3. De "highlights" zijn 3 tot 4 korte steekwoorden of zinsdelen die de kern-gaven samenvatten (max 5 woorden elk). Kies de meest onderscheidende gaven uit de lijst.
+4. De "familie" sluit aan bij de bovengenoemde gave-familie als die beschikbaar is.
+5. Het "bijbelvers" sluit specifiek aan bij de dominante gaven van deze persoon.
 
-Geef je antwoord in dit exacte JSON-formaat:
+TOON: warm, direct, geen jargon. Schrijf in "jij/jou" vorm. Alles in het Nederlands.
 
+Geef antwoord als dit exacte JSON:
 {
-  "openingszin": "één korte zin die de kern van deze persoon raakt (max 10 woorden, geen naam erin)",
-  "schets": "twee à drie zinnen karakterschets. Warm, concreet, herkenbaar. Geen opsomming.",
+  "openingszin": "één zin, max 10 woorden, specifiek, geen naam erin",
+  "schets": "2-3 zinnen die werk en gaven concreet verbinden",
+  "highlights": ["gave of eigenschap 1", "gave of eigenschap 2", "gave of eigenschap 3"],
   "familie": "één van: Woord & waarheid | Zorg & aanwezigheid | Richting & structuur",
-  "familieToelichting": "één zin die uitlegt waarom dit bij hen past",
-  "bijbelvers": "een kort bijbelvers dat aansluit bij dit profiel (maximaal 15 woorden)",
-  "bijbelbron": "bijv. Galaten 6:2"
-}
-
-Schrijf alles in het Nederlands. Gebruik 'jij/jou' taal.
-`;
+  "familieToelichting": "één specifieke zin waarom dit bij hen past",
+  "bijbelvers": "kort vers, max 15 woorden",
+  "bijbelbron": "bijv. Mattheüs 5:14"
+}`.trim();
 
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
-      temperature: 0.7,
+      temperature: 0.65,
     });
 
-    const content = completion.choices[0].message.content;
-    const result = JSON.parse(content || "{}");
-    return NextResponse.json(result);
+    const result = JSON.parse(completion.choices[0].message.content || "{}");
+
+    return NextResponse.json({
+      ...result,
+      qualityLabels,
+      workbio: workbio || null,
+    });
   } catch (e) {
     console.error("OpenAI error:", e);
-    // Fallback als OpenAI niet beschikbaar is
     return NextResponse.json({
       openingszin: "Iemand die er graag voor anderen is",
       schets: "Op basis van wat je hebt ingevuld zie je iemand die praktisch betrokken wil zijn. Niet van een afstand, maar dichtbij.",
+      highlights: ["Anderen helpen", "Betrokken aanwezig"],
       familie: "Zorg & aanwezigheid",
       familieToelichting: "Je beweegt je het meest als je concreet iets kunt betekenen voor anderen.",
       bijbelvers: "Draag elkanders lasten",
       bijbelbron: "Galaten 6:2",
+      qualityLabels,
+      workbio: workbio || null,
     });
   }
 }

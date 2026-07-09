@@ -66,9 +66,9 @@ const NEGATIVE_QUALITY_MAP: Record<string, string[]> = {
 };
 
 function scoreToStars(score: number): 1 | 2 | 3 | 4 | 5 {
-  if (score >= 70) return 5;
-  if (score >= 50) return 4;
-  if (score >= 35) return 3;
+  if (score >= 80) return 5;
+  if (score >= 60) return 4;
+  if (score >= 42) return 3;
   if (score >= 20) return 2;
   return 1;
 }
@@ -108,6 +108,7 @@ export function computeMatches(
 
     let totalWeight = 0;
     let matchedWeight = 0;
+    let negativeConflictWeight = 0; // gewicht van kwaliteiten die conflicteren met voorkeuren
     const matchedQualities: string[] = [];
 
     for (const qw of vacancy.qualityWeights) {
@@ -119,28 +120,27 @@ export function computeMatches(
       const workMatch = workBoost.has(qw.qualityId) && !directMatch && !familieMatch;
       const isNegative = negativeQualityIds.has(qw.qualityId);
 
+      if (isNegative) negativeConflictWeight += qw.weight;
+
       if (directMatch) {
-        const contribution = isNegative ? qw.weight * 0.3 : qw.weight;
-        matchedWeight += contribution;
+        matchedWeight += isNegative ? qw.weight * 0.3 : qw.weight;
         if (!isNegative) matchedQualities.push(qw.qualityId);
       } else if (familieMatch) {
-        // Familie-bonus telt voor 40% van het gewicht
-        const contribution = isNegative ? 0 : qw.weight * 0.4;
-        matchedWeight += contribution;
+        matchedWeight += isNegative ? 0 : qw.weight * 0.4;
       } else if (workMatch) {
-        // Werkervaring-boost telt voor 25% van het gewicht
-        const contribution = isNegative ? 0 : qw.weight * 0.25;
-        matchedWeight += contribution;
+        matchedWeight += isNegative ? 0 : qw.weight * 0.25;
       }
     }
 
-    // Normaliseer: score loopt tot 100, maar we schalen zo dat
-    // een goede gedeeltelijke match al 50+ scoort
-    const rawScore = totalWeight > 0 ? (matchedWeight / totalWeight) * 100 : 0;
+    // Basistoegankelijkheid: iedereen kan taken doen tenzij ze expliciet conflicteren.
+    // 25 punten basis, verminderd naar rato van conflicterende voorkeuren.
+    const conflictRatio = totalWeight > 0 ? negativeConflictWeight / totalWeight : 0;
+    const accessibilityBase = Math.round(25 * Math.max(0, 1 - conflictRatio * 2));
 
-    // Boost kleine scores iets op zodat de spreiding beter voelt
-    const boostedScore = rawScore < 20 ? rawScore * 1.5 : rawScore;
-    const score = Math.min(100, Math.round(boostedScore));
+    // Skill-bonus vult de resterende ruimte (0–75 punten) op basis van kwaliteitsoverlap
+    const rawSkillScore = totalWeight > 0 ? (matchedWeight / totalWeight) * 100 : 0;
+    const skillBonus = Math.round((rawSkillScore / 100) * (100 - accessibilityBase));
+    const score = Math.min(100, accessibilityBase + skillBonus);
 
     results.push({
       vacancy,

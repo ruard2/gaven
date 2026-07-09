@@ -57,7 +57,7 @@ export default function ApplyPage() {
     if (!participantId) { router.push(`/g/${slug}/start`); return; }
 
     setLoading(true);
-    const qualities = JSON.parse(sessionStorage.getItem(`qualities_${slug}`) || "[]");
+    const qualities = JSON.parse(sessionStorage.getItem(`allQualities_${slug}`) || sessionStorage.getItem(`qualities_${slug}`) || "[]");
 
     const res = await fetch("/api/public/apply", {
       method: "POST",
@@ -76,18 +76,49 @@ export default function ApplyPage() {
     }
   }
 
-  if (done && org) {
+  if (done && org && vacancy) {
+    const name = typeof window !== "undefined" ? sessionStorage.getItem(`name_${slug}`) || "" : "";
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
-        <div className="max-w-sm w-full text-center">
-          <div className="text-5xl mb-4">🎉</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Gelukt!</h1>
-          <p className="text-gray-600 mb-6">
-            Je reactie is verstuurd. Het aanspreekpunt van {org.name} neemt contact met je op om de volgende stap te bespreken.
-          </p>
+        <div className="max-w-sm w-full">
+          {/* Checkmark animatie */}
+          <div className="flex justify-center mb-6">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-lg"
+              style={{ backgroundColor: org.primaryColor }}
+            >
+              ✓
+            </div>
+          </div>
+
+          <h1 className="text-2xl font-bold text-gray-900 text-center mb-1">
+            {name ? `Top, ${name.split(" ")[0]}!` : "Gelukt!"}
+          </h1>
+          <p className="text-gray-500 text-center text-sm mb-6">Je reactie is verstuurd.</p>
+
+          {/* Samenvatting */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4 space-y-3">
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Taak</p>
+              <p className="font-semibold text-gray-900">{vacancy.title}</p>
+            </div>
+            {firstStepChoice && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Eerste stap</p>
+                <p className="text-sm text-gray-700">{firstStepChoice}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Wat nu?</p>
+              <p className="text-sm text-gray-700">
+                {org.name} neemt contact met je op. Je ontvangt ook een bevestiging per e-mail.
+              </p>
+            </div>
+          </div>
+
           <button
             onClick={() => router.push(`/g/${slug}/matches`)}
-            className="px-6 py-2.5 rounded-xl text-sm font-medium border border-gray-300 hover:bg-gray-50"
+            className="w-full py-3 rounded-xl text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
           >
             Andere taken bekijken
           </button>

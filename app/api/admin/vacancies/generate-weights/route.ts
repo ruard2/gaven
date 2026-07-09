@@ -13,10 +13,18 @@ export async function POST(req: NextRequest) {
   const prompt = `
 Je bent een expert in het matchen van vrijwilligers aan kerkelijke taken op basis van gaven en kwaliteiten.
 
-Analyseer de onderstaande taakomschrijving en bepaal welke kwaliteiten iemand nodig heeft om deze taak goed te vervullen.
-Wees precies: een hoog gewicht (80-100) betekent dat deze kwaliteit essentieel is voor de taak.
-Een middelhoog gewicht (40-70) betekent dat het helpt maar niet doorslaggevend is.
-Geef maximaal 10 kwaliteiten een gewicht, alleen die écht relevant zijn.
+Analyseer de onderstaande taakomschrijving en geef elk kwaliteit een gewicht dat weergeeft HOE ESSENTIEEL die kwaliteit is voor DEZE specifieke taak.
+
+Regels:
+- Gewicht 85-100: absoluut onmisbaar — iemand zonder deze kwaliteit kan de taak niet uitvoeren
+- Gewicht 50-80: duidelijk helpend, maar niet doorslaggevend
+- Gewicht 20-45: handig, maar bijzaak
+- Geef MAXIMAAL 8 kwaliteiten een gewicht
+- Wees ONDERSCHEIDEND: geef alleen hoge gewichten aan kwaliteiten die écht uniek zijn voor deze taak
+- Vermijd generieke kwaliteiten (coordineren, plannen, overzicht) tenzij ze de KERN van de taak zijn
+- Technische rollen: geef vakspecifieke technische kwaliteiten het hoogste gewicht (90-100); organisatorische skills zijn bijzaak (20-40)
+- Sociale rollen: geef mensgerichte kwaliteiten het hoogste gewicht; techniek is bijzaak
+- Eenvoudige taken: geef geen hoge gewichten aan geavanceerde skills — de drempel is laag
 
 Taak: ${title}
 Categorie: ${category}
@@ -29,7 +37,8 @@ ${qualityList}
 
 Geef je antwoord als JSON object: { "quality-id": gewicht, ... }
 Gewichten zijn gehele getallen van 1-100. Geef alleen kwaliteiten terug met gewicht > 0.
-Voorbeeld: { "luisteren": 85, "empathie": 90, "plannen": 45 }
+Voorbeeld technische taak: { "geluid": 95, "livestream": 85, "ict2": 70, "plannen": 30 }
+Voorbeeld sociale taak: { "luisteren": 95, "empathie": 90, "verbinden": 80, "helpen": 60 }
 `;
 
   try {

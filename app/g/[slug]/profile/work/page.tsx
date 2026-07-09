@@ -58,6 +58,7 @@ export default function WorkPage() {
           ))}
         </div>
 
+        <button onClick={() => router.push(`/g/${slug}/start`)} className="text-sm text-gray-400 hover:text-gray-600 mb-4 block">← Terug</button>
         <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>Stap 1 van 3</p>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Wat doe je voor werk of studie?</h1>
         <p className="text-sm text-gray-500 mb-5">
