@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFromCookies } from "@/lib/auth";
-import nodemailer from "nodemailer";
 
 export async function POST(req: NextRequest) {
   const adminId = await getAdminFromCookies();
@@ -10,49 +9,36 @@ export async function POST(req: NextRequest) {
   if (!to) return NextResponse.json({ error: "to is required" }, { status: 400 });
 
   const config = {
+    provider: process.env.BREVO_API_KEY ? "brevo" : process.env.SMTP_USER ? "smtp" : "none",
+    BREVO_API_KEY: process.env.BREVO_API_KEY ? "***set***" : "(not set)",
     SMTP_HOST: process.env.SMTP_HOST || "(not set)",
-    SMTP_PORT: process.env.SMTP_PORT || "(not set)",
     SMTP_USER: process.env.SMTP_USER ? process.env.SMTP_USER.slice(0, 4) + "***" : "(not set)",
-    SMTP_PASS: process.env.SMTP_PASS ? "***set***" : "(not set)",
     SMTP_FROM: process.env.SMTP_FROM || "(not set)",
   };
 
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    return NextResponse.json({ ok: false, error: "SMTP_USER or SMTP_PASS not set", config });
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Gavenroute Test", email: from },
+          to: [{ email: to }],
+          subject: "Gavenroute e-mail test",
+          htmlContent: "<p>Brevo verbinding werkt vanuit Railway!</p>",
+        }),
+      });
+      const body = await res.text();
+      if (!res.ok) throw new Error(`Brevo ${res.status}: ${body}`);
+      return NextResponse.json({ ok: true, config });
+    } catch (e: unknown) {
+      return NextResponse.json({ ok: false, config, error: (e as Error).message });
+    }
   }
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: false,
-    requireTLS: true,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  try {
-    await transporter.verify();
-    await transporter.sendMail({
-      from: `"Gavenroute Test" <${process.env.SMTP_FROM}>`,
-      to,
-      subject: "Gavenroute SMTP test",
-      html: "<p>SMTP verbinding werkt!</p>",
-    });
-    return NextResponse.json({ ok: true, config });
-  } catch (e: unknown) {
-    const err = e as { message?: string; code?: string; command?: string; response?: string };
-    return NextResponse.json({
-      ok: false,
-      config,
-      error: err.message,
-      code: err.code,
-      command: err.command,
-      response: err.response,
-    });
-  }
+  return NextResponse.json({ ok: false, config, error: "BREVO_API_KEY not set — add it in Railway variables" });
 }
