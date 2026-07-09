@@ -3,11 +3,7 @@ import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { QUALITY_CATEGORIES } from "@/lib/qualities";
-
-const CATEGORIES = [
-  "Pastoraat", "Jeugd", "Muziek & eredienst", "Techniek", "Communicatie",
-  "Administratie", "Financiën", "Onderwijs", "Praktisch", "Bestuur", "Overig",
-];
+import { CATEGORIES } from "@/lib/categories";
 
 const allQualities = QUALITY_CATEGORIES.flatMap((c) => c.qualities);
 

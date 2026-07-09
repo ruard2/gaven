@@ -2,16 +2,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { CATEGORY_ICONS } from "@/lib/categories";
 
 interface Vacancy { id: string; title: string; category: string; shortDescription: string; }
 interface Org { id: string; name: string; primaryColor: string; }
-
-const CATEGORY_ICONS: Record<string, string> = {
-  Muziek: "🎵", Techniek: "🔧", Administratie: "📋", Communicatie: "📢",
-  Gastvrijheid: "🤝", Onderwijs: "📖", Zorg: "💛", Leiderschap: "🧭",
-  Schoonmaak: "🧹", Keuken: "🍽️", Creatief: "🎨", Sport: "⚽",
-  Kinderen: "🧒", Jongeren: "🎯", Ouderen: "🌿", Financiën: "💰",
-};
 
 export default function DoetalPage() {
   const { slug } = useParams<{ slug: string }>();

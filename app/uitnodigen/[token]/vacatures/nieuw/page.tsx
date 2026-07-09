@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { QUALITY_CATEGORIES } from "@/lib/qualities";
+import { CATEGORIES } from "@/lib/categories";
 
 const QUALITY_LABEL_MAP: Record<string, string> = Object.fromEntries(
   QUALITY_CATEGORIES.flatMap((c) => c.qualities.map((q) => [q.id, q.label]))
@@ -305,14 +306,14 @@ export default function NewVacancyPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Categorie</label>
-              <input
-                spellCheck="true"
-                lang="nl"
+              <select
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                placeholder="bijv. Eredienst, Zorg, Jeugd, Techniek"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              >
+                <option value="">— Kies een categorie —</option>
+                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
             </div>
 
             <div>
