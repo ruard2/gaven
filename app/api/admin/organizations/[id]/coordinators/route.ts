@@ -27,8 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!org) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { name, email, vacancyIds } = await req.json();
-  if (!name?.trim() || !email?.trim()) {
-    return NextResponse.json({ error: "Naam en e-mail zijn verplicht" }, { status: 400 });
+  if (!email?.trim()) {
+    return NextResponse.json({ error: "E-mail is verplicht" }, { status: 400 });
   }
 
   const inviteToken = crypto.randomBytes(32).toString("hex");
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const coordinator = await prisma.coordinator.create({
     data: {
       organizationId: id,
-      name: name.trim(),
+      name: name?.trim() || email.trim().split("@")[0],
       email: email.trim().toLowerCase(),
       inviteToken,
       inviteExpiresAt,

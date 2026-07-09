@@ -452,9 +452,12 @@ export default function OrgDetail() {
             <h2 className="font-bold text-gray-900 mb-1">Coördinator toevoegen</h2>
             <p className="text-sm text-gray-500 mb-4">De coördinator ontvangt een e-mail om een account aan te maken.</p>
             <div className="space-y-3">
-              <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="Naam"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="E-mailadres"
+              <div>
+                <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="Naam (optioneel — coördinator vult zelf in)"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-xs text-gray-400 mt-1">Laat leeg als je de naam niet weet.</p>
+              </div>
+              <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="E-mailadres *"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               {org.vacancies.length > 0 && (
                 <div>
@@ -472,7 +475,7 @@ export default function OrgDetail() {
               )}
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={addCoordinator} disabled={coordSaving || !coordForm.name.trim() || !coordForm.email.trim()}
+              <button onClick={addCoordinator} disabled={coordSaving || !coordForm.email.trim()}
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                 {coordSaving ? "Uitnodigen…" : "Uitnodigen"}
               </button>

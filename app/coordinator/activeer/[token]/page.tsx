@@ -7,6 +7,7 @@ export default function ActivatePage() {
   const router = useRouter();
   const [info, setInfo] = useState<{ name: string; email: string } | null>(null);
   const [error, setError] = useState("");
+  const [ownName, setOwnName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -19,6 +20,7 @@ export default function ActivatePage() {
         if (d.error) { setError(d.error); return; }
         if (d.alreadyActive) { router.replace("/coordinator/login"); return; }
         setInfo(d);
+        setOwnName(d.name || "");
       })
       .catch(() => setError("Kon gegevens niet laden"))
       .finally(() => setLoading(false));
@@ -32,7 +34,7 @@ export default function ActivatePage() {
     const res = await fetch("/api/coordinator/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ token, password, name: ownName.trim() || undefined }),
     });
     const d = await res.json();
     if (d.ok) { router.push("/coordinator/dashboard"); }
@@ -60,9 +62,15 @@ export default function ActivatePage() {
           </svg>
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-1">Account activeren</h1>
-        <p className="text-sm text-gray-500 mb-6">Welkom, <strong>{info?.name}</strong>. Stel een wachtwoord in om te beginnen.</p>
+        <p className="text-sm text-gray-500 mb-6">Vul je naam in en stel een wachtwoord in om te beginnen.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Jouw naam</label>
+            <input required value={ownName} onChange={(e) => setOwnName(e.target.value)}
+              placeholder="Voornaam Achternaam"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
             <input value={info?.email || ""} disabled className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50" />

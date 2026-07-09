@@ -6,6 +6,7 @@ type Params = { params: Promise<{ id: string; entryId: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id: rosterId, entryId } = await params;
   const roster = await prisma.roster.findFirst({ where: { id: rosterId, coordinatorId: coord.id } });
   if (!roster) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
@@ -26,6 +27,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_: NextRequest, { params }: Params) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id: rosterId, entryId } = await params;
   const roster = await prisma.roster.findFirst({ where: { id: rosterId, coordinatorId: coord.id } });
   if (!roster) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });

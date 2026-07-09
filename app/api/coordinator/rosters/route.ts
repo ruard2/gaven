@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 
 export async function GET() {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const rosters = await prisma.roster.findMany({
     where: { coordinatorId: coord.id },
     include: { entries: { orderBy: { date: "asc" } } },
@@ -15,6 +16,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const contentType = req.headers.get("content-type") || "";
 
   // JSON: create empty roster

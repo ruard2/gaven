@@ -4,9 +4,9 @@ import { requireCoordinator } from "@/lib/coordinatorAuth";
 
 type Params = { params: Promise<{ id: string }> };
 
-// POST — add entry
 export async function POST(req: NextRequest, { params }: Params) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id: rosterId } = await params;
   const roster = await prisma.roster.findFirst({ where: { id: rosterId, coordinatorId: coord.id } });
   if (!roster) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });

@@ -4,12 +4,9 @@ import { requireCoordinator } from "@/lib/coordinatorAuth";
 
 type Params = { params: Promise<{ id: string }> };
 
-async function getOwnRoster(coordinatorId: string, id: string) {
-  return prisma.roster.findFirst({ where: { id, coordinatorId } });
-}
-
 export async function GET(_: NextRequest, { params }: Params) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const roster = await prisma.roster.findFirst({
     where: { id, coordinatorId: coord.id },
@@ -21,8 +18,9 @@ export async function GET(_: NextRequest, { params }: Params) {
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const roster = await getOwnRoster(coord.id, id);
+  const roster = await prisma.roster.findFirst({ where: { id, coordinatorId: coord.id } });
   if (!roster) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
 
   const { title, reminderDays, senderName } = await req.json();
@@ -40,8 +38,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_: NextRequest, { params }: Params) {
   const coord = await requireCoordinator();
+  if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const roster = await getOwnRoster(coord.id, id);
+  const roster = await prisma.roster.findFirst({ where: { id, coordinatorId: coord.id } });
   if (!roster) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
   await prisma.roster.delete({ where: { id } });
   return NextResponse.json({ ok: true });

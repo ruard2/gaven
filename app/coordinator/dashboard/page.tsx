@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CATEGORIES } from "@/lib/categories";
 
 interface Participant { name: string; email: string; phone?: string | null; }
 interface Application { id: string; responseType: string; status: string; createdAt: string; participant: Participant; }
@@ -36,6 +37,8 @@ export default function CoordinatorDashboard() {
   const [showTransfer, setShowTransfer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [showNewVacancy, setShowNewVacancy] = useState(false);
+  const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
 
   useEffect(() => {
     Promise.all([
@@ -98,6 +101,25 @@ export default function CoordinatorDashboard() {
     setSaving(false);
   }
 
+  async function createVacancy() {
+    if (!newVacForm.title.trim() || !newVacForm.category || !newVacForm.shortDescription.trim()) return;
+    setSaving(true);
+    const res = await fetch("/api/coordinator/vacancies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newVacForm),
+    });
+    const v = await res.json();
+    if (v.id) {
+      setVacancies((prev) => [v, ...prev]);
+      setShowNewVacancy(false);
+      setNewVacForm({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
+      setMsg("Taak aangemaakt!");
+      setTimeout(() => setMsg(""), 3000);
+    }
+    setSaving(false);
+  }
+
   async function logout() {
     await fetch("/api/coordinator/logout", { method: "POST" });
     router.push("/coordinator/login");
@@ -120,6 +142,9 @@ export default function CoordinatorDashboard() {
             <p className="text-xs text-gray-400 mt-0.5">Coördinator: {coord?.name}</p>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => setShowNewVacancy(true)} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
+              + Nieuwe taak
+            </button>
             <Link href="/coordinator/rooster" className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg">
               📋 Roosters
             </Link>
@@ -153,7 +178,10 @@ export default function CoordinatorDashboard() {
         {/* Vacancies */}
         {vacancies.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
-            Nog geen taken aan jou gekoppeld. Vraag de beheerder om taken toe te wijzen.
+            <p className="mb-3">Nog geen taken. Maak een nieuwe taak aan of vraag de beheerder taken toe te wijzen.</p>
+            <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+              + Eerste taak aanmaken
+            </button>
           </div>
         ) : (
           <>
@@ -327,6 +355,66 @@ export default function CoordinatorDashboard() {
           </div>
         )}
       </main>
+
+      {/* Nieuwe taak modal */}
+      {showNewVacancy && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowNewVacancy(false); }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h2 className="font-bold text-gray-900 mb-4">Nieuwe taak aanmaken</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Naam taak *</label>
+                <input value={newVacForm.title} onChange={(e) => setNewVacForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="bijv. Muzikant, Kinderoppas, Koster"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Categorie *</label>
+                <select value={newVacForm.category} onChange={(e) => setNewVacForm((f) => ({ ...f, category: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">— Kies een categorie —</option>
+                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Korte omschrijving *</label>
+                <input value={newVacForm.shortDescription} onChange={(e) => setNewVacForm((f) => ({ ...f, shortDescription: e.target.value }))}
+                  placeholder="Wat houdt de taak in?"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Waarom waardevol?</label>
+                <textarea rows={2} value={newVacForm.whyValuable} onChange={(e) => setNewVacForm((f) => ({ ...f, whyValuable: e.target.value }))}
+                  placeholder="Wat maakt deze taak de moeite waard?"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Wat doe je concreet?</label>
+                <textarea rows={2} value={newVacForm.concreteTasks} onChange={(e) => setNewVacForm((f) => ({ ...f, concreteTasks: e.target.value }))}
+                  placeholder="Beschrijf de concrete taken"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Eerste stap</label>
+                <input value={newVacForm.firstStep} onChange={(e) => setNewVacForm((f) => ({ ...f, firstStep: e.target.value }))}
+                  placeholder="Hoe begin je als nieuwe vrijwilliger?"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={createVacancy}
+                disabled={saving || !newVacForm.title.trim() || !newVacForm.category || !newVacForm.shortDescription.trim()}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {saving ? "Aanmaken…" : "Taak aanmaken"}
+              </button>
+              <button onClick={() => setShowNewVacancy(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

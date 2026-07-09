@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { token, password } = await req.json();
+  const { token, password, name } = await req.json();
   if (!token || !password || password.length < 8) {
     return NextResponse.json({ error: "Wachtwoord moet minimaal 8 tekens zijn" }, { status: 400 });
   }
@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
 
   await prisma.coordinator.update({
     where: { id: coord.id },
-    data: { passwordHash, status: "active", inviteToken: null, inviteExpiresAt: null },
+    data: {
+      passwordHash, status: "active", inviteToken: null, inviteExpiresAt: null,
+      ...(name?.trim() && { name: name.trim() }),
+    },
   });
 
   const jwt = signCoordinatorToken(coord.id);
