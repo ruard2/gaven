@@ -131,7 +131,7 @@ export default function OrgDetail() {
     });
     const d = await res.json();
     if (d.id) {
-      setCoordinators((prev) => [...prev, d]);
+      setCoordinators((prev) => [...prev, { ...d, vacancies: d.vacancies || [] }]);
       setShowCoordModal(false);
       setCoordForm({ name: "", email: "", vacancyIds: [] });
       setCoordMsg("Coördinator uitgenodigd! Ze ontvangen een activatielink.");
