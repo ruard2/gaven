@@ -1,34 +1,55 @@
 import nodemailer from "nodemailer";
 
-function getTransporter() {
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: false,
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+async function sendViaBrevo(to: string, subject: string, html: string, fromName: string) {
+  const apiKey = process.env.BREVO_API_KEY!;
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: fromName, email: from },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Brevo error ${res.status}: ${body}`);
   }
-  return null;
+}
+
+async function sendViaSmtp(to: string, subject: string, html: string, fromName: string) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: false,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  await transporter.sendMail({
+    from: `"${fromName}" <${process.env.SMTP_FROM}>`,
+    to,
+    subject,
+    html,
+  });
 }
 
 async function send(to: string, subject: string, html: string, fromName: string) {
-  const transporter = getTransporter();
-  if (transporter) {
-    await transporter.sendMail({
-      from: `"${fromName}" <${process.env.SMTP_FROM}>`,
-      to,
-      subject,
-      html,
-    });
+  if (process.env.BREVO_API_KEY) {
+    await sendViaBrevo(to, subject, html, fromName);
+  } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    await sendViaSmtp(to, subject, html, fromName);
   } else {
-    console.log(`=== EMAIL (no SMTP) → ${to} | ${subject} ===`);
+    console.log(`=== EMAIL (no provider) → ${to} | ${subject} ===`);
   }
 }
 
