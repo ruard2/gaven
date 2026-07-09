@@ -6,3 +6,8 @@ startCommand = "npx prisma db push --accept-data-loss && npx next start -p ${POR
 healthcheckPath = "/"
 healthcheckTimeout = 60
 restartPolicyType = "on_failure"
+
+[[deploy.cronJobs]]
+name = "daily-reminders"
+schedule = "0 7 * * *"
+command = "curl -s -H \"x-cron-secret: $CRON_SECRET\" http://localhost:${PORT:-3000}/api/cron/reminders"

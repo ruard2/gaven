@@ -120,6 +120,9 @@ export default function CoordinatorDashboard() {
             <p className="text-xs text-gray-400 mt-0.5">Coördinator: {coord?.name}</p>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/coordinator/rooster" className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg">
+              📋 Roosters
+            </Link>
             <button onClick={() => setShowTransfer(true)} className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg">
               Overdragen
             </button>

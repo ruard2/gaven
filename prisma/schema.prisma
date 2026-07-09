@@ -51,6 +51,32 @@ model Coordinator {
   updatedAt       DateTime @updatedAt
   vacancies       Vacancy[]
   resetTokens     CoordinatorResetToken[]
+  rosters         Roster[]
+}
+
+model Roster {
+  id            String        @id @default(cuid())
+  coordinatorId String
+  coordinator   Coordinator   @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+  title         String
+  reminderDays  Int           @default(3)
+  senderName    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  entries       RosterEntry[]
+}
+
+model RosterEntry {
+  id           String    @id @default(cuid())
+  rosterId     String
+  roster       Roster    @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  name         String
+  email        String?
+  date         DateTime?
+  role         String?
+  notes        String?
+  reminderSent Boolean   @default(false)
+  createdAt    DateTime  @default(now())
 }
 
 model CoordinatorResetToken {
