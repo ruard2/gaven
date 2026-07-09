@@ -52,17 +52,25 @@ export async function POST(req: NextRequest) {
     return "";
   }
 
+  function findRawCol(row: Record<string, unknown>, ...candidates: string[]): unknown {
+    const keys = Object.keys(row);
+    for (const c of candidates) {
+      const match = keys.find((k) => k.toLowerCase().includes(c.toLowerCase()));
+      if (match) return row[match];
+    }
+    return undefined;
+  }
+
   const entries = rows
     .filter((r) => Object.values(r).some((v) => v !== ""))
     .map((r) => {
-      const rawDate = findCol(r, "datum", "date", "dag", "wanneer");
+      const rawDate = findRawCol(r, "datum", "date", "dag", "wanneer");
       let date: Date | null = null;
       if (rawDate) {
-        // Excel date (number) or string
         if (rawDate instanceof Date) {
           date = rawDate;
         } else {
-          const parsed = new Date(rawDate);
+          const parsed = new Date(String(rawDate));
           if (!isNaN(parsed.getTime())) date = parsed;
         }
       }
