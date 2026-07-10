@@ -9,6 +9,6 @@ export async function GET() {
     name: coord.name,
     email: coord.email,
     status: coord.status,
-    organization: { id: coord.organization.id, name: coord.organization.name, primaryColor: coord.organization.primaryColor },
+    organization: { id: coord.organization.id, name: coord.organization.name, slug: coord.organization.slug, primaryColor: coord.organization.primaryColor },
   });
 }
