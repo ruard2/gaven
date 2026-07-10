@@ -3,11 +3,12 @@ import { prisma } from "@/lib/db";
 import { requireCoordinator } from "@/lib/coordinatorAuth";
 import * as XLSX from "xlsx";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const coord = await requireCoordinator();
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const vacancyId = req.nextUrl.searchParams.get("vacancyId");
   const rosters = await prisma.roster.findMany({
-    where: { coordinatorId: coord.id },
+    where: { coordinatorId: coord.id, ...(vacancyId ? { vacancyId } : {}) },
     include: { entries: { orderBy: { date: "asc" } } },
     orderBy: { createdAt: "desc" },
   });
@@ -21,9 +22,15 @@ export async function POST(req: NextRequest) {
 
   // JSON: create empty roster
   if (contentType.includes("application/json")) {
-    const { title, reminderDays, senderName } = await req.json();
+    const { title, reminderDays, senderName, vacancyId } = await req.json();
     const roster = await prisma.roster.create({
-      data: { coordinatorId: coord.id, title: title || "Nieuw rooster", reminderDays: reminderDays ?? 3, senderName: senderName || coord.name },
+      data: {
+        coordinatorId: coord.id,
+        title: title || "Nieuw rooster",
+        reminderDays: reminderDays ?? 3,
+        senderName: senderName || coord.name,
+        ...(vacancyId ? { vacancyId } : {}),
+      },
       include: { entries: true },
     });
     return NextResponse.json(roster, { status: 201 });

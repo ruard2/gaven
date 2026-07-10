@@ -58,6 +58,8 @@ model Roster {
   id            String        @id @default(cuid())
   coordinatorId String
   coordinator   Coordinator   @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+  vacancyId     String?
+  vacancy       Vacancy?      @relation(fields: [vacancyId], references: [id])
   title         String
   reminderDays  Int           @default(3)
   senderName    String?
@@ -111,6 +113,7 @@ model Vacancy {
   applications       Application[]
   proposals          VacancyProposal[]
   memberships        VacancyMembership[]
+  rosters            Roster[]
 }
 
 model VacancyProposal {
