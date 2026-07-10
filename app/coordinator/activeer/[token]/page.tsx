@@ -2,10 +2,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
+
 export default function ActivatePage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
   const [info, setInfo] = useState<{ name: string; email: string } | null>(null);
+  const [orgVacancies, setOrgVacancies] = useState<OrgVacancy[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [ownName, setOwnName] = useState("");
   const [password, setPassword] = useState("");
@@ -21,10 +25,16 @@ export default function ActivatePage() {
         if (d.alreadyActive) { router.replace("/coordinator/login"); return; }
         setInfo(d);
         setOwnName(d.name || "");
+        setOrgVacancies(d.orgVacancies || []);
+        setSelectedIds((d.orgVacancies || []).filter((v: OrgVacancy) => v.assigned).map((v: OrgVacancy) => v.id));
       })
       .catch(() => setError("Kon gegevens niet laden"))
       .finally(() => setLoading(false));
   }, [token, router]);
+
+  function toggleVacancy(id: string) {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,7 +44,7 @@ export default function ActivatePage() {
     const res = await fetch("/api/coordinator/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password, name: ownName.trim() || undefined }),
+      body: JSON.stringify({ token, password, name: ownName.trim() || undefined, vacancyIds: selectedIds }),
     });
     const d = await res.json();
     if (d.ok) { router.push("/coordinator/dashboard"); }
@@ -53,9 +63,12 @@ export default function ActivatePage() {
     </div>
   );
 
+  const availableVacancies = orgVacancies.filter((v) => !v.taken);
+  const takenVacancies = orgVacancies.filter((v) => v.taken);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-sm">
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-sm mx-auto">
         <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-5">
           <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -87,6 +100,33 @@ export default function ActivatePage() {
               placeholder="Herhaal wachtwoord"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
+
+          {availableVacancies.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Welke taken coördineer jij?
+              </label>
+              <p className="text-xs text-gray-400 mb-2">Je kunt dit later altijd aanpassen in je dashboard.</p>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                {availableVacancies.map((v) => (
+                  <label key={v.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <div className="min-w-0">
+                      <span className="text-sm text-gray-800 block truncate">{v.title}</span>
+                      <span className="text-xs text-gray-400">{v.category}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {takenVacancies.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {takenVacancies.length} taak{takenVacancies.length > 1 ? "en zijn" : " is"} al aan een andere coördinator gekoppeld.
+                </p>
+              )}
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={saving}
             className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">

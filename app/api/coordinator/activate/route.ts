@@ -13,11 +13,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Link verlopen" }, { status: 410 });
   }
 
-  return NextResponse.json({ name: coord.name, email: coord.email, alreadyActive: coord.status === "active" });
+  const orgVacancies = await prisma.vacancy.findMany({
+    where: { organizationId: coord.organizationId },
+    select: { id: true, title: true, category: true, coordinatorId: true },
+    orderBy: { title: "asc" },
+  });
+
+  return NextResponse.json({
+    name: coord.name,
+    email: coord.email,
+    alreadyActive: coord.status === "active",
+    orgVacancies: orgVacancies.map((v) => ({
+      id: v.id,
+      title: v.title,
+      category: v.category,
+      assigned: v.coordinatorId === coord.id,
+      taken: v.coordinatorId !== null && v.coordinatorId !== coord.id,
+    })),
+  });
 }
 
 export async function POST(req: NextRequest) {
-  const { token, password, name } = await req.json();
+  const { token, password, name, vacancyIds } = await req.json();
   if (!token || !password || password.length < 8) {
     return NextResponse.json({ error: "Wachtwoord moet minimaal 8 tekens zijn" }, { status: 400 });
   }
@@ -37,6 +54,17 @@ export async function POST(req: NextRequest) {
       ...(name?.trim() && { name: name.trim() }),
     },
   });
+
+  if (Array.isArray(vacancyIds) && vacancyIds.length > 0) {
+    await prisma.vacancy.updateMany({
+      where: {
+        id: { in: vacancyIds },
+        organizationId: coord.organizationId,
+        OR: [{ coordinatorId: null }, { coordinatorId: coord.id }],
+      },
+      data: { coordinatorId: coord.id },
+    });
+  }
 
   const jwt = signCoordinatorToken(coord.id);
   const res = NextResponse.json({ ok: true });

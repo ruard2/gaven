@@ -7,7 +7,7 @@ export async function GET() {
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const vacancies = await prisma.vacancy.findMany({
-    where: { organizationId: coord.organizationId },
+    where: { coordinatorId: coord.id },
     include: {
       applications: { select: { id: true, status: true, responseType: true, createdAt: true, participant: { select: { name: true, email: true, phone: true } } } },
       memberships: { select: { id: true, description: true, createdAt: true, participant: { select: { name: true, email: true } } } },

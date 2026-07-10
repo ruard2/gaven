@@ -13,6 +13,7 @@ interface Vacancy {
   applications: Application[]; memberships: Member[];
 }
 interface Coordinator { id: string; name: string; email: string; organization: { name: string; primaryColor: string }; }
+interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
 
 const RESPONSE_LABELS: Record<string, string> = {
   meedoen: "Wil meedoen", meekijken: "Wil meekijken", contact: "Wil contact", vraag: "Heeft een vraag",
@@ -40,6 +41,12 @@ export default function CoordinatorDashboard() {
   const [showNewVacancy, setShowNewVacancy] = useState(false);
   const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
 
+  // Assignment management
+  const [showAssignments, setShowAssignments] = useState(false);
+  const [orgVacancies, setOrgVacancies] = useState<OrgVacancy[]>([]);
+  const [assignmentSel, setAssignmentSel] = useState<string[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/coordinator/me").then((r) => r.json()),
@@ -50,6 +57,38 @@ export default function CoordinatorDashboard() {
       setVacancies(Array.isArray(v) ? v : []);
     }).finally(() => setLoading(false));
   }, [router]);
+
+  async function openAssignments() {
+    setShowAssignments(true);
+    setLoadingAssignments(true);
+    const data = await fetch("/api/coordinator/assignments").then((r) => r.json());
+    setOrgVacancies(Array.isArray(data) ? data : []);
+    setAssignmentSel((Array.isArray(data) ? data : []).filter((v: OrgVacancy) => v.assigned).map((v: OrgVacancy) => v.id));
+    setLoadingAssignments(false);
+  }
+
+  function toggleAssignment(id: string) {
+    setAssignmentSel((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  async function saveAssignments() {
+    setSaving(true);
+    const prevAssigned = orgVacancies.filter((v) => v.assigned).map((v) => v.id);
+    const add = assignmentSel.filter((id) => !prevAssigned.includes(id));
+    const remove = prevAssigned.filter((id) => !assignmentSel.includes(id));
+    await fetch("/api/coordinator/assignments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ add, remove }),
+    });
+    // Reload vacancies
+    const v = await fetch("/api/coordinator/vacancies").then((r) => r.json());
+    setVacancies(Array.isArray(v) ? v : []);
+    setShowAssignments(false);
+    setSaving(false);
+    setMsg("Coördinaties bijgewerkt");
+    setTimeout(() => setMsg(""), 3000);
+  }
 
   async function updateStatus(id: string, status: string) {
     await fetch(`/api/coordinator/vacancies/${id}`, {
@@ -129,6 +168,8 @@ export default function CoordinatorDashboard() {
 
   const activeVacancies = vacancies.filter((v) => v.status === "active");
   const inactiveVacancies = vacancies.filter((v) => v.status !== "active");
+  const availableForAssignment = orgVacancies.filter((v) => !v.taken);
+  const takenByOther = orgVacancies.filter((v) => v.taken);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -144,6 +185,9 @@ export default function CoordinatorDashboard() {
           <div className="flex items-center gap-3">
             <button onClick={() => setShowNewVacancy(true)} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
               + Nieuwe taak
+            </button>
+            <button onClick={openAssignments} className="text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
+              Mijn coördinaties
             </button>
             <Link href="/coordinator/rooster" className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg">
               📋 Roosters
@@ -178,10 +222,16 @@ export default function CoordinatorDashboard() {
         {/* Vacancies */}
         {vacancies.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
-            <p className="mb-3">Nog geen taken. Maak een nieuwe taak aan of vraag de beheerder taken toe te wijzen.</p>
-            <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-              + Eerste taak aanmaken
-            </button>
+            <p className="mb-1 font-medium text-gray-600">Nog geen taken gekoppeld aan jouw account.</p>
+            <p className="mb-4 text-xs">Koppel bestaande taken of maak een nieuwe taak aan.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={openAssignments} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-blue-400">
+                Taken koppelen
+              </button>
+              <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                + Nieuwe taak aanmaken
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -194,7 +244,6 @@ export default function CoordinatorDashboard() {
                 <div className="space-y-3">
                   {items.map((v) => (
                     <div key={v.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      {/* Vacancy header */}
                       <div className="p-4 flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -220,7 +269,6 @@ export default function CoordinatorDashboard() {
 
                       {expandedId === v.id && (
                         <div className="border-t border-gray-100 p-4 space-y-5 bg-gray-50">
-                          {/* Edit form */}
                           {editingId === v.id ? (
                             <div className="space-y-3">
                               <h3 className="text-sm font-semibold text-gray-700">Taak bewerken</h3>
@@ -278,7 +326,6 @@ export default function CoordinatorDashboard() {
                             </div>
                           )}
 
-                          {/* Applications */}
                           {v.applications.length > 0 && (
                             <div>
                               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Aanmeldingen</h3>
@@ -299,7 +346,6 @@ export default function CoordinatorDashboard() {
                             </div>
                           )}
 
-                          {/* Current volunteers */}
                           {v.memberships.length > 0 && (
                             <div>
                               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Huidige vrijwilligers</h3>
@@ -355,6 +401,56 @@ export default function CoordinatorDashboard() {
           </div>
         )}
       </main>
+
+      {/* Mijn coördinaties modal */}
+      {showAssignments && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignments(false); }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[80vh] flex flex-col">
+            <h2 className="font-bold text-gray-900 mb-1">Mijn coördinaties beheren</h2>
+            <p className="text-sm text-gray-500 mb-4">Vink aan welke taken jij coördineert. Je kunt meerdere taken selecteren.</p>
+
+            {loadingAssignments ? (
+              <p className="text-sm text-gray-400 py-4 text-center">Laden…</p>
+            ) : availableForAssignment.length === 0 && takenByOther.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4 text-center">Er zijn nog geen taken in deze organisatie. Maak eerst een taak aan.</p>
+            ) : (
+              <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {availableForAssignment.map((v) => (
+                  <label key={v.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" checked={assignmentSel.includes(v.id)} onChange={() => toggleAssignment(v.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-gray-800 block">{v.title}</span>
+                      <span className="text-xs text-gray-400">{v.category}</span>
+                    </div>
+                  </label>
+                ))}
+                {takenByOther.map((v) => (
+                  <div key={v.id} className="flex items-center gap-3 px-4 py-3 opacity-40">
+                    <input type="checkbox" disabled checked={false}
+                      className="rounded border-gray-300" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-gray-500 block">{v.title}</span>
+                      <span className="text-xs text-gray-400">{v.category} · al gekoppeld aan andere coördinator</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+              <button onClick={saveAssignments} disabled={saving || loadingAssignments}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {saving ? "Opslaan…" : "Opslaan"}
+              </button>
+              <button onClick={() => setShowAssignments(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Nieuwe taak modal */}
       {showNewVacancy && (
