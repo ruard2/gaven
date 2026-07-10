@@ -25,11 +25,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "In afwachting", color: "#7c3aed" },
 };
 
-const DEFAULT_INVITE_BODY = (coordName: string, orgName: string, vacancy?: Vacancy) =>
-  vacancy
-    ? `Hallo,\n\nIk nodig je graag uit om mee te doen met de taak "${vacancy.title}" bij ${orgName}.\n\n${vacancy.shortDescription ? vacancy.shortDescription + "\n\n" : ""}${vacancy.whyValuable ? "Waarom is dit waardevol?\n" + vacancy.whyValuable + "\n\n" : ""}Heb je interesse of wil je meer weten? Klik dan op de knop hieronder.\n\nMet vriendelijke groet,\n${coordName}`
-    : `Hallo,\n\nIk nodig je graag uit om vrijwilliger te worden bij ${orgName}. Klik op de knop hieronder voor meer informatie over de beschikbare taken.\n\nMet vriendelijke groet,\n${coordName}`;
-
 export default function CoordinatorDashboard() {
   const router = useRouter();
   const [coord, setCoord] = useState<Coordinator | null>(null);
@@ -38,23 +33,24 @@ export default function CoordinatorDashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Vacancy>>({});
-  const [transferEmail, setTransferEmail] = useState("");
-  const [transferName, setTransferName] = useState("");
-  const [showTransfer, setShowTransfer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [showNewVacancy, setShowNewVacancy] = useState(false);
   const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
 
-  // Assignment management
-  const [showAssignments, setShowAssignments] = useState(false);
+  // Beheer modal (assignments + transfer combined)
+  const [showBeheer, setShowBeheer] = useState(false);
+  const [beheerTab, setBeheerTab] = useState<"coordinaties" | "overdragen">("coordinaties");
   const [orgVacancies, setOrgVacancies] = useState<OrgVacancy[]>([]);
   const [assignmentSel, setAssignmentSel] = useState<string[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+  const [transferName, setTransferName] = useState("");
 
-  // Volunteer invite
+  // Invite per vacancy
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ to: "", subject: "", body: "", ctaLabel: "Ja, ik doe mee!", ctaUrl: "" });
+  const [inviteVacancy, setInviteVacancy] = useState<Vacancy | null>(null);
+  const [inviteForm, setInviteForm] = useState({ to: "", subject: "", body: "", ctaLabel: "Ja, ik doe mee!" });
   const [inviteSending, setInviteSending] = useState(false);
 
   useEffect(() => {
@@ -62,34 +58,40 @@ export default function CoordinatorDashboard() {
       fetch("/api/coordinator/me").then((r) => r.json()),
       fetch("/api/coordinator/vacancies").then((r) => r.json()),
     ]).then(([c, v]) => {
-      if (c.error) { router.push("/coordinator/login"); return; }
+      if (c.error) { router.push("/"); return; }
       setCoord(c);
       setVacancies(Array.isArray(v) ? v : []);
     }).finally(() => setLoading(false));
   }, [router]);
 
-  function openInvite(vacancy?: Vacancy) {
+  function openEdit(v: Vacancy) {
+    setExpandedId(v.id);
+    setEditingId(v.id);
+    setEditForm({ title: v.title, shortDescription: v.shortDescription, whyValuable: v.whyValuable || "", concreteTasks: v.concreteTasks || "", firstStep: v.firstStep || "" });
+  }
+
+  function openInvite(v: Vacancy) {
     if (!coord) return;
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    setInviteVacancy(v);
     setInviteForm({
       to: "",
-      subject: vacancy
-        ? `Uitnodiging: ${vacancy.title} bij ${coord.organization.name}`
-        : `Uitnodiging: vrijwilligerswerk bij ${coord.organization.name}`,
-      body: DEFAULT_INVITE_BODY(coord.name, coord.organization.name, vacancy),
+      subject: `Uitnodiging: ${v.title} bij ${coord.organization.name}`,
+      body: `Hallo,\n\nIk nodig je graag uit om mee te doen met de taak "${v.title}" bij ${coord.organization.name}.\n\n${v.shortDescription ? v.shortDescription + "\n\n" : ""}${v.whyValuable ? "Waarom is dit waardevol?\n" + v.whyValuable + "\n\n" : ""}Heb je interesse of wil je meer weten? Klik dan op de knop hieronder.\n\nMet vriendelijke groet,\n${coord.name}`,
       ctaLabel: "Ja, ik doe mee!",
-      ctaUrl: `${baseUrl}/g/${coord.organization.slug}/matches`,
     });
     setShowInvite(true);
   }
 
   async function sendInvite() {
-    if (!inviteForm.to.trim()) return;
+    if (!coord || !inviteForm.to.trim()) return;
     setInviteSending(true);
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const ctaUrl = `${baseUrl}/g/${coord.organization.slug}/matches`;
     const res = await fetch("/api/coordinator/invite-volunteer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(inviteForm),
+      body: JSON.stringify({ ...inviteForm, ctaUrl }),
     });
     const d = await res.json();
     setInviteSending(false);
@@ -102,17 +104,14 @@ export default function CoordinatorDashboard() {
     }
   }
 
-  async function openAssignments() {
-    setShowAssignments(true);
+  async function openBeheer() {
+    setShowBeheer(true);
+    setBeheerTab("coordinaties");
     setLoadingAssignments(true);
     const data = await fetch("/api/coordinator/assignments").then((r) => r.json());
     setOrgVacancies(Array.isArray(data) ? data : []);
     setAssignmentSel((Array.isArray(data) ? data : []).filter((v: OrgVacancy) => v.assigned).map((v: OrgVacancy) => v.id));
     setLoadingAssignments(false);
-  }
-
-  function toggleAssignment(id: string) {
-    setAssignmentSel((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }
 
   async function saveAssignments() {
@@ -121,16 +120,26 @@ export default function CoordinatorDashboard() {
     const add = assignmentSel.filter((id) => !prevAssigned.includes(id));
     const remove = prevAssigned.filter((id) => !assignmentSel.includes(id));
     await fetch("/api/coordinator/assignments", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ add, remove }),
     });
     const v = await fetch("/api/coordinator/vacancies").then((r) => r.json());
     setVacancies(Array.isArray(v) ? v : []);
-    setShowAssignments(false);
-    setSaving(false);
+    setShowBeheer(false); setSaving(false);
     setMsg("Coördinaties bijgewerkt");
     setTimeout(() => setMsg(""), 3000);
+  }
+
+  async function handleTransfer() {
+    if (!transferEmail.trim()) return;
+    setSaving(true);
+    await fetch("/api/coordinator/transfer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newEmail: transferEmail, newName: transferName }),
+    });
+    setShowBeheer(false); setSaving(false);
+    setMsg("Overdracht verstuurd! De nieuwe coördinator ontvangt een uitnodigingslink.");
+    setTimeout(() => setMsg(""), 5000);
   }
 
   async function updateStatus(id: string, status: string) {
@@ -166,19 +175,6 @@ export default function CoordinatorDashboard() {
     ));
   }
 
-  async function handleTransfer() {
-    if (!transferEmail.trim()) return;
-    setSaving(true);
-    await fetch("/api/coordinator/transfer", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ newEmail: transferEmail, newName: transferName }),
-    });
-    setShowTransfer(false);
-    setMsg("Overdracht verstuurd! De nieuwe coördinator ontvangt een uitnodigingslink.");
-    setTimeout(() => setMsg(""), 5000);
-    setSaving(false);
-  }
-
   async function createVacancy() {
     if (!newVacForm.title.trim() || !newVacForm.category || !newVacForm.shortDescription.trim()) return;
     setSaving(true);
@@ -208,6 +204,7 @@ export default function CoordinatorDashboard() {
   const inactiveVacancies = vacancies.filter((v) => v.status !== "active");
   const availableForAssignment = orgVacancies.filter((v) => !v.taken);
   const takenByOther = orgVacancies.filter((v) => v.taken);
+  const vacancyTitles = vacancies.map((v) => v.title);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -219,23 +216,22 @@ export default function CoordinatorDashboard() {
               <span className="text-sm font-semibold text-gray-700">{coord?.organization.name}</span>
             </div>
             <p className="text-xs text-gray-400 mt-0.5">Coördinator: {coord?.name}</p>
+            {vacancyTitles.length > 0 && (
+              <p className="text-xs text-gray-400 mt-0">
+                Coördinator van: {vacancyTitles.join(", ")}
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2">
             <button onClick={() => setShowNewVacancy(true)} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
               + Nieuwe taak
             </button>
-            <button onClick={() => openInvite()} className="text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
-              ✉ Uitnodigen
-            </button>
-            <button onClick={openAssignments} className="text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
-              Mijn coördinaties
+            <button onClick={openBeheer} className="text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
+              Beheer rol
             </button>
             <Link href="/coordinator/rooster" className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg">
               📋 Roosters
             </Link>
-            <button onClick={() => setShowTransfer(true)} className="text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg">
-              Overdragen
-            </button>
             <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">Uitloggen</button>
           </div>
         </div>
@@ -262,9 +258,9 @@ export default function CoordinatorDashboard() {
         {vacancies.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
             <p className="mb-1 font-medium text-gray-600">Nog geen taken gekoppeld aan jouw account.</p>
-            <p className="mb-4 text-xs">Koppel bestaande taken of maak een nieuwe taak aan.</p>
+            <p className="mb-4 text-xs">Koppel bestaande taken via "Beheer rol" of maak een nieuwe taak aan.</p>
             <div className="flex gap-3 justify-center">
-              <button onClick={openAssignments} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-blue-400">
+              <button onClick={openBeheer} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-blue-400">
                 Taken koppelen
               </button>
               <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
@@ -302,12 +298,12 @@ export default function CoordinatorDashboard() {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button onClick={() => openInvite(v)}
-                            className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 hover:border-blue-400 px-2 py-1 rounded-lg">
+                            className="text-xs text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-300 px-2.5 py-1.5 rounded-lg">
                             Uitnodigen
                           </button>
-                          <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
-                            className="text-xs text-blue-500 hover:underline">
-                            {expandedId === v.id ? "Sluiten" : "Openen"}
+                          <button onClick={() => expandedId === v.id ? setExpandedId(null) : openEdit(v)}
+                            className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2.5 py-1.5 rounded-lg font-medium">
+                            {expandedId === v.id ? "Sluiten" : "Bewerken"}
                           </button>
                         </div>
                       </div>
@@ -337,39 +333,32 @@ export default function CoordinatorDashboard() {
                                   )}
                                 </div>
                               ))}
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 flex-wrap">
                                 <button onClick={() => saveEdit(v.id)} disabled={saving}
                                   className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                                   {saving ? "Opslaan…" : "Opslaan"}
                                 </button>
-                                <button onClick={() => setEditingId(null)} className="text-sm px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50">
+                                {v.status === "active" ? (
+                                  <button onClick={() => updateStatus(v.id, "inactive")}
+                                    className="text-sm px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-amber-300 text-amber-600">
+                                    Non-actief zetten
+                                  </button>
+                                ) : (
+                                  <button onClick={() => updateStatus(v.id, "active")}
+                                    className="text-sm px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-green-300 text-green-600">
+                                    Activeren
+                                  </button>
+                                )}
+                                <button onClick={() => deleteVacancy(v.id)}
+                                  className="text-sm px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-red-300 text-red-500">
+                                  Verwijderen
+                                </button>
+                                <button onClick={() => setEditingId(null)} className="text-sm px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 ml-auto">
                                   Annuleren
                                 </button>
                               </div>
                             </div>
-                          ) : (
-                            <div className="flex gap-2 flex-wrap">
-                              <button onClick={() => { setEditingId(v.id); setEditForm({ title: v.title, shortDescription: v.shortDescription, whyValuable: v.whyValuable || "", concreteTasks: v.concreteTasks || "", firstStep: v.firstStep || "" }); }}
-                                className="text-sm px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-blue-300 text-gray-700">
-                                Bewerken
-                              </button>
-                              {v.status === "active" ? (
-                                <button onClick={() => updateStatus(v.id, "inactive")}
-                                  className="text-sm px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-amber-300 text-amber-600">
-                                  Non-actief zetten
-                                </button>
-                              ) : (
-                                <button onClick={() => updateStatus(v.id, "active")}
-                                  className="text-sm px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-green-300 text-green-600">
-                                  Activeren
-                                </button>
-                              )}
-                              <button onClick={() => deleteVacancy(v.id)}
-                                className="text-sm px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-red-300 text-red-500">
-                                Verwijderen
-                              </button>
-                            </div>
-                          )}
+                          ) : null}
 
                           {v.applications.length > 0 && (
                             <div>
@@ -422,13 +411,107 @@ export default function CoordinatorDashboard() {
         )}
       </main>
 
+      {/* Beheer rol modal */}
+      {showBeheer && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowBeheer(false); }}>
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-6 pb-0">
+              <h2 className="font-bold text-gray-900 mb-4">Beheer rol</h2>
+              <div className="flex border-b border-gray-200 gap-4">
+                <button onClick={() => setBeheerTab("coordinaties")}
+                  className={`text-sm pb-2.5 font-medium border-b-2 transition-colors ${beheerTab === "coordinaties" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                  Mijn taken
+                </button>
+                <button onClick={() => setBeheerTab("overdragen")}
+                  className={`text-sm pb-2.5 font-medium border-b-2 transition-colors ${beheerTab === "overdragen" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                  Rol overdragen
+                </button>
+              </div>
+            </div>
+
+            {beheerTab === "coordinaties" && (
+              <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-4">
+                <p className="text-sm text-gray-500">Vink aan welke taken jij coördineert. Je kunt meerdere taken selecteren.</p>
+                {loadingAssignments ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Laden…</p>
+                ) : availableForAssignment.length === 0 && takenByOther.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Er zijn nog geen taken in deze organisatie.</p>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                    {availableForAssignment.map((v) => (
+                      <label key={v.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={assignmentSel.includes(v.id)}
+                          onChange={() => setAssignmentSel((prev) => prev.includes(v.id) ? prev.filter((x) => x !== v.id) : [...prev, v.id])}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm text-gray-800 block">{v.title}</span>
+                          <span className="text-xs text-gray-400">{v.category}</span>
+                        </div>
+                      </label>
+                    ))}
+                    {takenByOther.map((v) => (
+                      <div key={v.id} className="flex items-center gap-3 px-4 py-3 opacity-40">
+                        <input type="checkbox" disabled checked={false} className="rounded border-gray-300" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm text-gray-500 block">{v.title}</span>
+                          <span className="text-xs text-gray-400">{v.category} · al gekoppeld aan andere coördinator</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <button onClick={saveAssignments} disabled={saving || loadingAssignments}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {saving ? "Opslaan…" : "Opslaan"}
+                  </button>
+                  <button onClick={() => setShowBeheer(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                    Annuleren
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {beheerTab === "overdragen" && (
+              <div className="p-6 pt-4 space-y-4">
+                <p className="text-sm text-gray-500">Draag jouw coördinatorrol over aan iemand anders. Die persoon ontvangt een uitnodigingslink per e-mail.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Naam nieuwe coördinator</label>
+                    <input value={transferName} onChange={(e) => setTransferName(e.target.value)} placeholder="Voornaam Achternaam"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">E-mail nieuwe coördinator *</label>
+                    <input type="email" value={transferEmail} onChange={(e) => setTransferEmail(e.target.value)} placeholder="naam@kerk.nl"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <button onClick={handleTransfer} disabled={saving || !transferEmail.trim()}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {saving ? "Versturen…" : "Overdragen"}
+                  </button>
+                  <button onClick={() => setShowBeheer(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                    Annuleren
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Uitnodiging modal */}
       {showInvite && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowInvite(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
             <h2 className="font-bold text-gray-900 mb-1">Iemand uitnodigen</h2>
-            <p className="text-sm text-gray-500 mb-5">Stuur een persoonlijke uitnodiging. Pas de tekst aan naar wens.</p>
+            <p className="text-sm text-gray-500 mb-5">
+              Persoonlijke uitnodiging voor <span className="font-medium text-gray-700">{inviteVacancy?.title}</span>. Pas de tekst aan naar wens.
+            </p>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Aan (e-mailadres) *</label>
@@ -446,23 +529,15 @@ export default function CoordinatorDashboard() {
                 <textarea rows={8} value={inviteForm.body} onChange={(e) => setInviteForm((f) => ({ ...f, body: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Knoptekst in mail</label>
-                  <input value={inviteForm.ctaLabel} onChange={(e) => setInviteForm((f) => ({ ...f, ctaLabel: e.target.value }))}
-                    placeholder="Ja, ik doe mee!"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Knop verwijst naar</label>
-                  <input value={inviteForm.ctaUrl} onChange={(e) => setInviteForm((f) => ({ ...f, ctaUrl: e.target.value }))}
-                    placeholder="https://..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Knoptekst in e-mail</label>
+                <input value={inviteForm.ctaLabel} onChange={(e) => setInviteForm((f) => ({ ...f, ctaLabel: e.target.value }))}
+                  placeholder="Ja, ik doe mee!"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
-              {inviteForm.ctaLabel && inviteForm.ctaUrl && (
+              {inviteForm.ctaLabel && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                  <span className="text-xs text-gray-400 block mb-2">Voorbeeld knop in e-mail:</span>
+                  <span className="text-xs text-gray-400 block mb-2">Voorbeeld knop:</span>
                   <span className="inline-block bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg">
                     {inviteForm.ctaLabel}
                   </span>
@@ -475,78 +550,6 @@ export default function CoordinatorDashboard() {
                 {inviteSending ? "Versturen…" : "Uitnodiging versturen"}
               </button>
               <button onClick={() => setShowInvite(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
-                Annuleren
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mijn coördinaties modal */}
-      {showAssignments && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignments(false); }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[80vh] flex flex-col">
-            <h2 className="font-bold text-gray-900 mb-1">Mijn coördinaties beheren</h2>
-            <p className="text-sm text-gray-500 mb-4">Vink aan welke taken jij coördineert.</p>
-            {loadingAssignments ? (
-              <p className="text-sm text-gray-400 py-4 text-center">Laden…</p>
-            ) : availableForAssignment.length === 0 && takenByOther.length === 0 ? (
-              <p className="text-sm text-gray-400 py-4 text-center">Er zijn nog geen taken in deze organisatie.</p>
-            ) : (
-              <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                {availableForAssignment.map((v) => (
-                  <label key={v.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                    <input type="checkbox" checked={assignmentSel.includes(v.id)} onChange={() => toggleAssignment(v.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm text-gray-800 block">{v.title}</span>
-                      <span className="text-xs text-gray-400">{v.category}</span>
-                    </div>
-                  </label>
-                ))}
-                {takenByOther.map((v) => (
-                  <div key={v.id} className="flex items-center gap-3 px-4 py-3 opacity-40">
-                    <input type="checkbox" disabled checked={false} className="rounded border-gray-300" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm text-gray-500 block">{v.title}</span>
-                      <span className="text-xs text-gray-400">{v.category} · al gekoppeld aan andere coördinator</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
-              <button onClick={saveAssignments} disabled={saving || loadingAssignments}
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "Opslaan…" : "Opslaan"}
-              </button>
-              <button onClick={() => setShowAssignments(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
-                Annuleren
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Overdragen modal */}
-      {showTransfer && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
-            <h2 className="font-bold text-gray-900 mb-1">Coördinatorrol overdragen</h2>
-            <p className="text-sm text-gray-500 mb-4">De nieuwe coördinator ontvangt een uitnodigingslink per e-mail.</p>
-            <div className="space-y-3">
-              <input value={transferName} onChange={(e) => setTransferName(e.target.value)} placeholder="Naam nieuwe coördinator"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <input type="email" value={transferEmail} onChange={(e) => setTransferEmail(e.target.value)} placeholder="E-mail nieuwe coördinator"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button onClick={handleTransfer} disabled={saving || !transferEmail.trim()}
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "Versturen…" : "Overdragen"}
-              </button>
-              <button onClick={() => setShowTransfer(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
                 Annuleren
               </button>
             </div>
@@ -584,19 +587,16 @@ export default function CoordinatorDashboard() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Waarom waardevol?</label>
                 <textarea rows={2} value={newVacForm.whyValuable} onChange={(e) => setNewVacForm((f) => ({ ...f, whyValuable: e.target.value }))}
-                  placeholder="Wat maakt deze taak de moeite waard?"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Wat doe je concreet?</label>
                 <textarea rows={2} value={newVacForm.concreteTasks} onChange={(e) => setNewVacForm((f) => ({ ...f, concreteTasks: e.target.value }))}
-                  placeholder="Beschrijf de concrete taken"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Eerste stap</label>
                 <input value={newVacForm.firstStep} onChange={(e) => setNewVacForm((f) => ({ ...f, firstStep: e.target.value }))}
-                  placeholder="Hoe begin je als nieuwe vrijwilliger?"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
