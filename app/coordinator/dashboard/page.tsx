@@ -64,6 +64,7 @@ export default function CoordinatorDashboard() {
   // Nieuwe vacature
   const [showNewVacancy, setShowNewVacancy] = useState(false);
   const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
+  const [customCategory, setCustomCategory] = useState("");
 
   function flash(m: string) { setMsg(m); setTimeout(() => setMsg(""), 4000); }
 
@@ -106,14 +107,16 @@ export default function CoordinatorDashboard() {
   }
 
   async function createVacancy() {
-    if (!newVacForm.title.trim() || !newVacForm.category || !newVacForm.shortDescription.trim()) return;
+    const effectiveCategory = newVacForm.category === "Anders…" ? customCategory.trim() : newVacForm.category;
+    if (!newVacForm.title.trim() || !effectiveCategory || !newVacForm.shortDescription.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/coordinator/vacancies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newVacForm) });
+    const res = await fetch("/api/coordinator/vacancies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...newVacForm, category: effectiveCategory }) });
     const v = await res.json();
     if (v.id) {
       setVacancies((prev) => [v, ...prev]);
       setShowNewVacancy(false);
       setNewVacForm({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
+      setCustomCategory("");
       flash("Vacature aangemaakt");
     }
     setSaving(false);
@@ -674,15 +677,25 @@ export default function CoordinatorDashboard() {
               ))}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Categorie *</label>
-                <select value={newVacForm.category} onChange={(e) => setNewVacForm((f) => ({ ...f, category: e.target.value }))}
+                <select value={newVacForm.category} onChange={(e) => { setNewVacForm((f) => ({ ...f, category: e.target.value })); if (e.target.value !== "Anders…") setCustomCategory(""); }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">— Kies een categorie —</option>
                   {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                  <option value="Anders…">Anders…</option>
                 </select>
+                {newVacForm.category === "Anders…" && (
+                  <input
+                    autoFocus
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    placeholder="Typ je eigen categorie"
+                    className="mt-2 w-full border border-blue-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={createVacancy} disabled={saving || !newVacForm.title.trim() || !newVacForm.category || !newVacForm.shortDescription.trim()}
+              <button onClick={createVacancy} disabled={saving || !newVacForm.title.trim() || !newVacForm.category || (newVacForm.category === "Anders…" && !customCategory.trim()) || !newVacForm.shortDescription.trim()}
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                 {saving ? "Aanmaken…" : "Vacature aanmaken"}
               </button>
