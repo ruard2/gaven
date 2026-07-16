@@ -347,16 +347,16 @@ export default function OrgDetail() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-900 text-sm">{c.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          c.status === "active" ? "bg-green-100 text-green-700" :
-                          c.status === "invited" ? "bg-amber-100 text-amber-700" :
-                          c.status === "pending" ? "bg-gray-100 text-gray-500" :
-                          "bg-gray-100 text-gray-400"
-                        }`}>{
-                          c.status === "active" ? "Actief" :
-                          c.status === "invited" ? "Uitgenodigd" :
-                          c.status === "pending" ? "Aangemaakt" : "Inactief"
-                        }</span>
+                        {c.status !== "pending" && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            c.status === "active" ? "bg-green-100 text-green-700" :
+                            c.status === "invited" ? "bg-amber-100 text-amber-700" :
+                            "bg-gray-100 text-gray-400"
+                          }`}>{
+                            c.status === "active" ? "Actief" :
+                            c.status === "invited" ? "Uitgenodigd" : "Inactief"
+                          }</span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">{c.email}</p>
                       {c.vacancies.length > 0 && (
