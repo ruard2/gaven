@@ -450,12 +450,13 @@ export default function OrgDetail() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowCoordModal(false); }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="font-bold text-gray-900 mb-1">Coördinator toevoegen</h2>
-            <p className="text-sm text-gray-500 mb-4">De coördinator ontvangt een e-mail om een account aan te maken.</p>
+            <p className="text-sm text-gray-500 mb-4">De coördinator ontvangt een uitnodigingsmail en maakt zelf een account aan.</p>
             <div className="space-y-3">
               <div>
-                <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="Naam (optioneel — coördinator vult zelf in)"
+                <label className="block text-xs font-medium text-gray-600 mb-1">Naam coördinator <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="bijv. Jan de Vries"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <p className="text-xs text-gray-400 mt-1">Laat leeg als je de naam niet weet.</p>
+                <p className="text-xs text-gray-400 mt-1">Laat leeg als je de naam niet weet — de coördinator vult dit zelf in bij registratie.</p>
               </div>
               <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="E-mailadres *"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
