@@ -19,6 +19,10 @@ export default function ParticipantsPage() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/admin/organizations/${orgId}/participants`)
@@ -29,6 +33,35 @@ export default function ParticipantsPage() {
       .then((d) => { if (d) setParticipants(d); })
       .finally(() => setLoading(false));
   }, [orgId, router]);
+
+  function startEdit(p: Participant) {
+    setEditingId(p.id);
+    setEditForm({ name: p.name, email: p.email, phone: p.phone || "" });
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    setSaving(true);
+    const res = await fetch(`/api/admin/organizations/${orgId}/participants`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participantId: editingId, ...editForm }),
+    });
+    const updated = await res.json();
+    if (updated.id) {
+      setParticipants((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+      setEditingId(null);
+    }
+    setSaving(false);
+  }
+
+  async function deleteParticipant(participantId: string) {
+    if (!confirm("Deelnemer definitief verwijderen? Dit verwijdert ook alle reacties.")) return;
+    setDeletingId(participantId);
+    await fetch(`/api/admin/organizations/${orgId}/participants?participantId=${participantId}`, { method: "DELETE" });
+    setParticipants((prev) => prev.filter((p) => p.id !== participantId));
+    setDeletingId(null);
+  }
 
   const filtered = participants.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -71,27 +104,92 @@ export default function ParticipantsPage() {
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Profiel</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Reacties</th>
                   <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Ingevuld</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 font-medium text-gray-900">{p.name}</td>
-                    <td className="px-5 py-3 text-gray-500">
-                      <a href={`mailto:${p.email}`} className="hover:underline text-blue-600">{p.email}</a>
-                      {p.phone && <div className="text-xs text-gray-400">{p.phone}</div>}
-                    </td>
-                    <td className="px-5 py-3">
-                      {p.profile?.completedAt
-                        ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Compleet</span>
-                        : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Onvolledig</span>
-                      }
-                    </td>
-                    <td className="px-5 py-3 text-gray-600">{p._count.applications}</td>
-                    <td className="px-5 py-3 text-gray-400 text-xs">
-                      {new Date(p.createdAt).toLocaleDateString("nl-NL")}
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={p.id} className={`hover:bg-gray-50 ${editingId === p.id ? "bg-blue-50" : ""}`}>
+                      <td className="px-5 py-3 font-medium text-gray-900">{p.name}</td>
+                      <td className="px-5 py-3 text-gray-500">
+                        <a href={`mailto:${p.email}`} className="hover:underline text-blue-600">{p.email}</a>
+                        {p.phone && <div className="text-xs text-gray-400">{p.phone}</div>}
+                      </td>
+                      <td className="px-5 py-3">
+                        {p.profile?.completedAt
+                          ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Compleet</span>
+                          : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Onvolledig</span>
+                        }
+                      </td>
+                      <td className="px-5 py-3 text-gray-600">{p._count.applications}</td>
+                      <td className="px-5 py-3 text-gray-400 text-xs">
+                        {new Date(p.createdAt).toLocaleDateString("nl-NL")}
+                      </td>
+                      <td className="px-5 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => editingId === p.id ? setEditingId(null) : startEdit(p)}
+                          className="text-xs text-blue-500 hover:text-blue-700 mr-3"
+                        >
+                          {editingId === p.id ? "Sluiten" : "Bewerken"}
+                        </button>
+                        <button
+                          onClick={() => deleteParticipant(p.id)}
+                          disabled={deletingId === p.id}
+                          className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                        >
+                          {deletingId === p.id ? "…" : "Verwijderen"}
+                        </button>
+                      </td>
+                    </tr>
+                    {editingId === p.id && (
+                      <tr key={`edit-${p.id}`} className="bg-blue-50 border-b border-blue-100">
+                        <td colSpan={6} className="px-5 py-4">
+                          <div className="flex flex-wrap gap-3 items-end">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Naam</label>
+                              <input
+                                value={editForm.name}
+                                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">E-mail</label>
+                              <input
+                                type="email"
+                                value={editForm.email}
+                                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-52"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Telefoon</label>
+                              <input
+                                value={editForm.phone}
+                                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                                placeholder="optioneel"
+                                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36"
+                              />
+                            </div>
+                            <button
+                              onClick={saveEdit}
+                              disabled={saving || !editForm.name.trim() || !editForm.email.trim()}
+                              className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {saving ? "Opslaan…" : "Opslaan"}
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-white"
+                            >
+                              Annuleren
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>

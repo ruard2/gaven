@@ -290,9 +290,9 @@ export default function OrgDetail() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Hoe werkt Gavenroute?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { stap: "1", titel: "Taken instellen", tekst: "Voeg de vrijwilligerstaken van jouw organisatie toe. De app berekent automatisch welke eigenschappen bij elke taak passen.", color: "#2563eb" },
+              { stap: "1", titel: "Coördinatoren uitnodigen", tekst: "Voeg coördinatoren toe die hun eigen taken beheren via een persoonlijk dashboard. Zij houden vrijwilligers bij en sturen het rooster.", color: "#2563eb" },
               { stap: "2", titel: "QR-code delen", tekst: "Deel de QR-code of link tijdens een dienst of bijeenkomst. Mensen scannen en vullen een korte vragenlijst in.", color: "#7c3aed" },
-              { stap: "3", titel: "Matches & reacties", tekst: "De app koppelt mensen aan passende taken op basis van gaven en talenten. Jij ziet alle reacties hier en neemt contact op.", color: "#059669" },
+              { stap: "3", titel: "Matches & reacties", tekst: "De app koppelt mensen aan passende taken op basis van gaven en talenten. Coördinatoren zien hun eigen reacties en nemen contact op.", color: "#059669" },
             ].map(({ stap, titel, tekst, color }) => (
               <div key={stap} className="flex gap-3">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5" style={{ backgroundColor: color }}>{stap}</div>
@@ -313,11 +313,60 @@ export default function OrgDetail() {
           </div>
         </div>
 
-        {/* Medewerkers uitnodigen */}
+        {/* Coordinators — staat nu vóór redacteuren */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Coördinatoren</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Geef iemand toegang tot hun eigen taken via een eigen dashboard.</p>
+            </div>
+            <button onClick={() => { setCoordForm({ name: "", email: "", vacancyIds: [] }); setShowCoordModal(true); }}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+              + Toevoegen
+            </button>
+          </div>
+
+          {coordMsg && <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-700">{coordMsg}</div>}
+
+          {coordinators.length === 0 ? (
+            <p className="text-sm text-gray-400 py-2">Nog geen coördinatoren toegevoegd.</p>
+          ) : (
+            <div className="space-y-3">
+              {coordinators.map((c) => (
+                <div key={c.id} className="border border-gray-200 rounded-xl px-4 py-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 text-sm">{c.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          c.status === "active" ? "bg-green-100 text-green-700" :
+                          c.status === "invited" ? "bg-amber-100 text-amber-700" :
+                          "bg-gray-100 text-gray-500"
+                        }`}>{c.status === "active" ? "Actief" : c.status === "invited" ? "Uitgenodigd" : "Inactief"}</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{c.email}</p>
+                      {c.vacancies.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">{c.vacancies.map((v) => v.title).join(", ")}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {c.status === "invited" && (
+                        <button onClick={() => resendInvite(c.id)} className="text-xs text-blue-500 hover:underline">Opnieuw sturen</button>
+                      )}
+                      <button onClick={() => deleteCoordinator(c.id)} className="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Redacteuren uitnodigen (vroeger: Medewerkers) */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Medewerkers uitnodigen</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Redacteuren uitnodigen</h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 Stuur een link naar iemand die taken mag bewerken — zonder account nodig.
                 Jij keurt elke wijziging goed voor die live gaat.
@@ -391,55 +440,6 @@ export default function OrgDetail() {
               <p className="text-xs text-gray-400">Code: {org.publicCode}</p>
             </div>
           </div>
-        </div>
-
-        {/* Coordinators */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Coördinatoren</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Geef iemand toegang tot hun eigen taken via een eigen dashboard.</p>
-            </div>
-            <button onClick={() => { setCoordForm({ name: "", email: "", vacancyIds: [] }); setShowCoordModal(true); }}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-              + Toevoegen
-            </button>
-          </div>
-
-          {coordMsg && <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm text-green-700">{coordMsg}</div>}
-
-          {coordinators.length === 0 ? (
-            <p className="text-sm text-gray-400 py-2">Nog geen coördinatoren toegevoegd.</p>
-          ) : (
-            <div className="space-y-3">
-              {coordinators.map((c) => (
-                <div key={c.id} className="border border-gray-200 rounded-xl px-4 py-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 text-sm">{c.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          c.status === "active" ? "bg-green-100 text-green-700" :
-                          c.status === "invited" ? "bg-amber-100 text-amber-700" :
-                          "bg-gray-100 text-gray-500"
-                        }`}>{c.status === "active" ? "Actief" : c.status === "invited" ? "Uitgenodigd" : "Inactief"}</span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">{c.email}</p>
-                      {c.vacancies.length > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">{c.vacancies.map((v) => v.title).join(", ")}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {c.status === "invited" && (
-                        <button onClick={() => resendInvite(c.id)} className="text-xs text-blue-500 hover:underline">Opnieuw sturen</button>
-                      )}
-                      <button onClick={() => deleteCoordinator(c.id)} className="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
       </main>
