@@ -169,28 +169,86 @@ export default function ApplicationsPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-3">
-                    <a
-                      href={`mailto:${a.participant.email}`}
-                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
-                    >
-                      E-mail sturen
-                    </a>
-                    {a.participant.phone && (
-                      <a
-                        href={`tel:${a.participant.phone}`}
-                        className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
-                      >
-                        Bellen
-                      </a>
-                    )}
-                  </div>
+                  <ContactButtons
+                    name={a.participant.name}
+                    email={a.participant.email}
+                    phone={a.participant.phone ?? null}
+                    vacancyTitle={a.vacancy.title}
+                  />
                 </div>
               );
             })}
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function toIntlPhone(phone: string): string {
+  const clean = phone.replace(/[\s\-().]/g, "");
+  if (clean.startsWith("+")) return clean.slice(1);
+  if (clean.startsWith("00")) return clean.slice(2);
+  if (clean.startsWith("0")) return "31" + clean.slice(1);
+  return clean;
+}
+
+function openDeepLink(appUrl: string, webUrl: string) {
+  let appOpened = false;
+  const onHide = () => { appOpened = true; };
+  document.addEventListener("visibilitychange", onHide);
+  window.location.href = appUrl;
+  setTimeout(() => {
+    document.removeEventListener("visibilitychange", onHide);
+    if (!appOpened) window.open(webUrl, "_blank");
+  }, 1500);
+}
+
+function ContactButtons({ name, email, phone, vacancyTitle }: {
+  name: string; email: string; phone: string | null; vacancyTitle: string;
+}) {
+  const msg = `Hallo ${name},\n\nJe hebt je aangemeld voor "${vacancyTitle}". Graag neem ik contact met je op.\n\nMet vriendelijke groet`;
+  const intl = phone ? toIntlPhone(phone) : null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-3">
+      {/* E-mail — opent lokale mailclient */}
+      <a href={`mailto:${email}?subject=Aanmelding ${vacancyTitle}`}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        E-mail
+      </a>
+
+      {/* WhatsApp — app-eerst, web als fallback */}
+      {intl && (
+        <button
+          onClick={() => openDeepLink(
+            `whatsapp://send?phone=${intl}&text=${encodeURIComponent(msg)}`,
+            `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`
+          )}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
+          <svg className="w-3.5 h-3.5 text-[#25D366]" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.555 4.104 1.523 5.83L0 24l6.336-1.495A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.028-1.382l-.36-.214-3.732.88.937-3.636-.236-.374A9.818 9.818 0 1112 21.818z"/></svg>
+          WhatsApp
+        </button>
+      )}
+
+      {/* SMS — opent lokale SMS-app */}
+      {phone && (
+        <a href={`sms:${phone}?body=${encodeURIComponent(msg)}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          SMS
+        </a>
+      )}
+
+      {/* Bellen */}
+      {phone && (
+        <a href={`tel:${phone}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+          Bellen
+        </a>
+      )}
     </div>
   );
 }
