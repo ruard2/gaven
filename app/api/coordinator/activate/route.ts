@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { token, password, name, vacancyIds, newFunctions } = await req.json();
+  const { token, password, name, vacancyIds } = await req.json();
   if (!token || !password || password.length < 8) {
     return NextResponse.json({ error: "Wachtwoord moet minimaal 8 tekens zijn" }, { status: 400 });
   }
@@ -65,24 +65,6 @@ export async function POST(req: NextRequest) {
       },
       data: { coordinatorId: coord.id },
     });
-  }
-
-  if (Array.isArray(newFunctions) && newFunctions.length > 0) {
-    for (const fn of newFunctions) {
-      if (!fn.title?.trim()) continue;
-      await prisma.vacancy.create({
-        data: {
-          organizationId: coord.organizationId,
-          coordinatorId: coord.id,
-          title: fn.title.trim(),
-          category: fn.category?.trim() || "Anders",
-          shortDescription: "",
-          contactPersonName: resolvedName || coord.email,
-          contactPersonEmail: coord.email,
-          status: "active",
-        },
-      });
-    }
   }
 
   const jwt = signCoordinatorToken(coord.id);

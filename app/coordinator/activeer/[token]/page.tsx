@@ -3,12 +3,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
-interface NewFunction { title: string; category: string; }
-
-const CATEGORIES = [
-  "Muziek & eredienst", "Praktisch", "Pastoraat", "Jeugd & gezin",
-  "Communicatie", "Techniek", "Administratie", "Onderwijs", "Anders",
-];
 
 export default function ActivatePage() {
   const { token } = useParams<{ token: string }>();
@@ -22,11 +16,6 @@ export default function ActivatePage() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [newFunctions, setNewFunctions] = useState<NewFunction[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [addTitle, setAddTitle] = useState("");
-  const [addCategory, setAddCategory] = useState(CATEGORIES[0]);
-  const [addCustomCategory, setAddCustomCategory] = useState("");
 
   useEffect(() => {
     fetch(`/api/coordinator/activate?token=${token}`)
@@ -47,21 +36,6 @@ export default function ActivatePage() {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }
 
-  function addFunction() {
-    const title = addTitle.trim();
-    const category = addCategory === "Anders" ? addCustomCategory.trim() || "Anders" : addCategory;
-    if (!title) return;
-    setNewFunctions((prev) => [...prev, { title, category }]);
-    setAddTitle("");
-    setAddCategory(CATEGORIES[0]);
-    setAddCustomCategory("");
-    setShowAdd(false);
-  }
-
-  function removeFunction(i: number) {
-    setNewFunctions((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) { setError("Wachtwoorden komen niet overeen"); return; }
@@ -70,13 +44,7 @@ export default function ActivatePage() {
     const res = await fetch("/api/coordinator/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token,
-        password,
-        name: ownName.trim() || undefined,
-        vacancyIds: selectedIds,
-        newFunctions,
-      }),
+      body: JSON.stringify({ token, password, name: ownName.trim() || undefined, vacancyIds: selectedIds }),
     });
     const d = await res.json();
     if (d.ok) { router.push("/coordinator/dashboard"); }
@@ -133,15 +101,13 @@ export default function ActivatePage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Welke functies coördineer jij?
-            </label>
-            <p className="text-xs text-gray-400 mb-2">Selecteer uit de lijst of voeg een eigen functie toe.</p>
-
-            {/* Bestaande vacatures */}
-            {availableVacancies.length > 0 && (
-              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-44 overflow-y-auto mb-2">
+          {availableVacancies.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Welke functies coördineer jij?
+              </label>
+              <p className="text-xs text-gray-400 mb-2">Selecteer wat van toepassing is. Je kunt dit later aanpassen en nieuwe vacatures aanmaken in je dashboard.</p>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
                 {availableVacancies.map((v) => (
                   <label key={v.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
                     <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
@@ -153,81 +119,13 @@ export default function ActivatePage() {
                   </label>
                 ))}
               </div>
-            )}
-
-            {/* Eigen functies toegevoegd */}
-            {newFunctions.length > 0 && (
-              <div className="border border-blue-100 bg-blue-50 rounded-lg divide-y divide-blue-100 mb-2">
-                {newFunctions.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-2.5">
-                    <div className="min-w-0">
-                      <span className="text-sm text-gray-800 block truncate">{f.title}</span>
-                      <span className="text-xs text-gray-400">{f.category}</span>
-                    </div>
-                    <button type="button" onClick={() => removeFunction(i)}
-                      className="text-gray-400 hover:text-red-500 ml-2 flex-shrink-0">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Toevoegen-formulier */}
-            {showAdd ? (
-              <div className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50">
-                <input
-                  autoFocus
-                  value={addTitle}
-                  onChange={(e) => setAddTitle(e.target.value)}
-                  placeholder="Naam van de functie"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-                <select
-                  value={addCategory}
-                  onChange={(e) => setAddCategory(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
-                {addCategory === "Anders" && (
-                  <input
-                    value={addCustomCategory}
-                    onChange={(e) => setAddCustomCategory(e.target.value)}
-                    placeholder="Vul categorie in"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  />
-                )}
-                <div className="flex gap-2">
-                  <button type="button" onClick={addFunction}
-                    disabled={!addTitle.trim()}
-                    className="flex-1 bg-blue-600 text-white rounded-lg py-1.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
-                    Toevoegen
-                  </button>
-                  <button type="button" onClick={() => { setShowAdd(false); setAddTitle(""); }}
-                    className="flex-1 bg-gray-100 text-gray-700 rounded-lg py-1.5 text-sm hover:bg-gray-200">
-                    Annuleren
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button type="button" onClick={() => setShowAdd(true)}
-                className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Eigen functie toevoegen
-              </button>
-            )}
-
-            {takenVacancies.length > 0 && (
-              <p className="text-xs text-gray-400 mt-2">
-                {takenVacancies.length} functie{takenVacancies.length > 1 ? "s zijn" : " is"} al aan een andere coördinator gekoppeld.
-              </p>
-            )}
-          </div>
+              {takenVacancies.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {takenVacancies.length} functie{takenVacancies.length > 1 ? "s zijn" : " is"} al aan een andere coördinator gekoppeld.
+                </p>
+              )}
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={saving}
