@@ -43,6 +43,8 @@ export default function OrgDetail() {
   const [coordForm, setCoordForm] = useState({ name: "", email: "", vacancyIds: [] as string[] });
   const [coordSaving, setCoordSaving] = useState(false);
   const [coordMsg, setCoordMsg] = useState("");
+  const [coordInviteLink, setCoordInviteLink] = useState<string | null>(null);
+  const [coordLinkCopied, setCoordLinkCopied] = useState(false);
   const [editingCoord, setEditingCoord] = useState<Coordinator | null>(null);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -122,7 +124,7 @@ export default function OrgDetail() {
   }
 
   async function addCoordinator() {
-    if (!org || !coordForm.name.trim() || !coordForm.email.trim()) return;
+    if (!org || !coordForm.email.trim()) return;
     setCoordSaving(true);
     const res = await fetch(`/api/admin/organizations/${org.id}/coordinators`, {
       method: "POST",
@@ -132,10 +134,8 @@ export default function OrgDetail() {
     const d = await res.json();
     if (d.id) {
       setCoordinators((prev) => [...prev, { ...d, vacancies: d.vacancies || [] }]);
-      setShowCoordModal(false);
-      setCoordForm({ name: "", email: "", vacancyIds: [] });
-      setCoordMsg("Coördinator uitgenodigd! Ze ontvangen een activatielink.");
-      setTimeout(() => setCoordMsg(""), 4000);
+      setCoordInviteLink(d.activateUrl || null);
+      setCoordLinkCopied(false);
     }
     setCoordSaving(false);
   }
@@ -447,47 +447,140 @@ export default function OrgDetail() {
       {/* Coordinator modal */}
       {showCoordModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCoordModal(false); }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowCoordModal(false); setCoordInviteLink(null); } }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="font-bold text-gray-900 mb-1">Coördinator toevoegen</h2>
-            <p className="text-sm text-gray-500 mb-4">De coördinator ontvangt een uitnodigingsmail en maakt zelf een account aan.</p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Naam coördinator <span className="text-gray-400 font-normal">(optioneel)</span></label>
-                <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="bijv. Jan de Vries"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <p className="text-xs text-gray-400 mt-1">Laat leeg als je de naam niet weet — de coördinator vult dit zelf in bij registratie.</p>
-              </div>
-              <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="E-mailadres *"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              {org.vacancies.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-2">Koppel taken (optioneel):</p>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {org.vacancies.map((v) => (
-                      <label key={v.id} className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={coordForm.vacancyIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
-                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                        <span className="text-sm text-gray-700">{v.title}</span>
-                      </label>
-                    ))}
+
+            {!coordInviteLink ? (
+              /* ── Stap 1: formulier ── */
+              <>
+                <h2 className="font-bold text-gray-900 mb-1">Coördinator toevoegen</h2>
+                <p className="text-sm text-gray-500 mb-4">Vul de gegevens in — daarna krijg je een uitnodigingslink die je zelf kunt versturen.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Naam coördinator <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                    <input value={coordForm.name} onChange={(e) => setCoordForm((f) => ({ ...f, name: e.target.value }))} placeholder="bijv. Jan de Vries"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <p className="text-xs text-gray-400 mt-1">Laat leeg — de coördinator vult dit zelf in bij registratie.</p>
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">E-mailadres *</label>
+                    <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="naam@kerk.nl"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <p className="text-xs text-gray-400 mt-1">Nodig om in te loggen — je kiest zelf via welk kanaal je de link deelt.</p>
+                  </div>
+                  {org.vacancies.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-600 mb-2">Koppel taken (optioneel):</p>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {org.vacancies.map((v) => (
+                          <label key={v.id} className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={coordForm.vacancyIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                            <span className="text-sm text-gray-700">{v.title}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={addCoordinator} disabled={coordSaving || !coordForm.email.trim()}
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {coordSaving ? "Uitnodigen…" : "Uitnodigen"}
-              </button>
-              <button onClick={() => setShowCoordModal(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
-                Annuleren
-              </button>
-            </div>
+                <div className="flex gap-2 mt-5">
+                  <button onClick={addCoordinator} disabled={coordSaving || !coordForm.email.trim()}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {coordSaving ? "Aanmaken…" : "Uitnodigingslink genereren"}
+                  </button>
+                  <button onClick={() => setShowCoordModal(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                    Annuleren
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ── Stap 2: deel de link ── */
+              <CoordShareStep
+                link={coordInviteLink}
+                name={coordForm.name}
+                email={coordForm.email}
+                orgName={org.name}
+                onClose={() => { setShowCoordModal(false); setCoordInviteLink(null); setCoordForm({ name: "", email: "", vacancyIds: [] }); }}
+              />
+            )}
           </div>
         </div>
       )}
 
     </div>
+  );
+}
+
+// ── Deel-scherm na aanmaken coördinator ─────────────────────────────
+function CoordShareStep({ link, name, email, orgName, onClose }: {
+  link: string; name: string; email: string; orgName: string; onClose: () => void;
+}) {
+  const greeting = name ? `Hoi ${name},` : "Hoi,";
+  const defaultMsg = `${greeting}\n\nJe bent uitgenodigd als coördinator bij ${orgName} via Gavenroute.\n\nActiveer je account via deze link:\n${link}\n\nDe link is 30 dagen geldig.`;
+  const [msg, setMsg] = useState(defaultMsg);
+  const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  function copyText() {
+    navigator.clipboard.writeText(msg);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
+  function copyLink() {
+    navigator.clipboard.writeText(link);
+    setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000);
+  }
+
+  const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  const smsUrl = `sms:${email ? encodeURIComponent(email) : ""}?body=${encodeURIComponent(msg)}`;
+  const mailUrl = `mailto:${email || ""}?subject=${encodeURIComponent(`Uitnodiging coördinator — ${orgName}`)}&body=${encodeURIComponent(msg)}`;
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-1">
+        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-base">✓</div>
+        <h2 className="font-bold text-gray-900">Coördinator aangemaakt</h2>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">Pas de tekst aan en verstuur de uitnodiging via WhatsApp, e-mail, sms of kopieer de link.</p>
+
+      <div className="mb-3">
+        <label className="block text-xs font-medium text-gray-600 mb-1">Berichttekst — pas aan naar wens</label>
+        <textarea rows={8} value={msg} onChange={(e) => setMsg(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <a href={waUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-[#25D366] text-white hover:bg-[#1ebe5d]">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.555 4.104 1.523 5.83L0 24l6.336-1.495A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.028-1.382l-.36-.214-3.732.88.937-3.636-.236-.374A9.818 9.818 0 1112 21.818z"/></svg>
+          WhatsApp
+        </a>
+        <a href={mailUrl}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          E-mail
+        </a>
+        <a href={smsUrl}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-gray-700 text-white hover:bg-gray-800">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          Sms / iMessage
+        </a>
+        <button onClick={copyText}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-gray-500"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          {copied ? "Gekopieerd!" : "Tekst kopiëren"}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-4">
+        <span className="text-xs text-gray-500 truncate flex-1">{link}</span>
+        <button onClick={copyLink} className="text-xs font-medium text-blue-600 hover:text-blue-800 flex-shrink-0">
+          {linkCopied ? "Gekopieerd!" : "Kopieer link"}
+        </button>
+      </div>
+
+      <button onClick={onClose} className="w-full py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+        Sluiten
+      </button>
+    </>
   );
 }
