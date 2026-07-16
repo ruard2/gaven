@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAdminFromCookies } from "@/lib/auth";
+import { send } from "@/lib/email";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const adminId = await getAdminFromCookies();
@@ -18,37 +19,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const coordinator = await prisma.coordinator.findFirst({ where: { id: coordId, organizationId: id } });
   if (!coordinator) return NextResponse.json({ error: "Coördinator niet gevonden" }, { status: 404 });
 
-  if (!process.env.BREVO_API_KEY) {
-    return NextResponse.json({ error: "E-mail versturen niet geconfigureerd" }, { status: 503 });
-  }
-
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
   const htmlBody = body
     .split("\n")
     .map((line: string) => line.trim() === "" ? "<br/>" : `<p style="margin:0 0 8px 0">${line}</p>`)
     .join("");
 
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "api-key": process.env.BREVO_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sender: { name: org.name, email: from },
-      replyTo: admin?.email ? { email: admin.email } : undefined,
-      to: [{ email: coordinator.email, name: coordinator.name }],
-      subject: subject || `Uitnodiging coördinator — ${org.name}`,
-      htmlContent: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111827;font-size:15px;line-height:1.6;">
-          ${htmlBody}
-        </div>
-      `,
-    }),
-  });
+  const html = `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#111827;font-size:15px;line-height:1.6;">
+      ${htmlBody}
+    </div>
+  `;
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("Brevo error:", err);
+  try {
+    await send(
+      coordinator.email,
+      subject || `Uitnodiging coördinator — ${org.name}`,
+      html,
+      org.name,
+      admin?.email,  // reply-to → admin
+    );
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("Send invite error:", e);
     return NextResponse.json({ error: "Versturen mislukt" }, { status: 502 });
   }
-
-  return NextResponse.json({ ok: true });
 }

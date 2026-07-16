@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-async function sendViaBrevo(to: string, subject: string, html: string, fromName: string) {
+async function sendViaBrevo(to: string, subject: string, html: string, fromName: string, replyTo?: string) {
   const apiKey = process.env.BREVO_API_KEY!;
   const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -11,6 +11,7 @@ async function sendViaBrevo(to: string, subject: string, html: string, fromName:
     },
     body: JSON.stringify({
       sender: { name: fromName, email: from },
+      replyTo: replyTo ? { email: replyTo } : undefined,
       to: [{ email: to }],
       subject,
       htmlContent: html,
@@ -22,7 +23,7 @@ async function sendViaBrevo(to: string, subject: string, html: string, fromName:
   }
 }
 
-async function sendViaSmtp(to: string, subject: string, html: string, fromName: string) {
+async function sendViaSmtp(to: string, subject: string, html: string, fromName: string, replyTo?: string) {
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587"),
@@ -37,17 +38,18 @@ async function sendViaSmtp(to: string, subject: string, html: string, fromName: 
   });
   await transporter.sendMail({
     from: `"${fromName}" <${process.env.SMTP_FROM}>`,
+    replyTo: replyTo || undefined,
     to,
     subject,
     html,
   });
 }
 
-export async function send(to: string, subject: string, html: string, fromName: string) {
+export async function send(to: string, subject: string, html: string, fromName: string, replyTo?: string) {
   if (process.env.BREVO_API_KEY) {
-    await sendViaBrevo(to, subject, html, fromName);
+    await sendViaBrevo(to, subject, html, fromName, replyTo);
   } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    await sendViaSmtp(to, subject, html, fromName);
+    await sendViaSmtp(to, subject, html, fromName, replyTo);
   } else {
     console.log(`=== EMAIL (no provider) → ${to} | ${subject} ===`);
   }

@@ -34,6 +34,6 @@ export async function POST(req: NextRequest) {
     </div>
   `;
 
-  await send(to.trim(), subject.trim(), html, coord.name || coord.organization.name);
+  await send(to.trim(), subject.trim(), html, coord.name || coord.organization.name, coord.email);
   return NextResponse.json({ ok: true });
 }
