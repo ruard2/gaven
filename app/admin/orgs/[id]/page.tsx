@@ -45,6 +45,8 @@ export default function OrgDetail() {
   const [coordMsg, setCoordMsg] = useState("");
   const [coordInviteLink, setCoordInviteLink] = useState<string | null>(null);
   const [coordLinkCopied, setCoordLinkCopied] = useState(false);
+  const [coordInviteId, setCoordInviteId] = useState<string | null>(null);
+  const [coordEmailError, setCoordEmailError] = useState("");
   const [editingCoord, setEditingCoord] = useState<Coordinator | null>(null);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -124,7 +126,11 @@ export default function OrgDetail() {
   }
 
   async function addCoordinator() {
-    if (!org || !coordForm.email.trim()) return;
+    if (!org) return;
+    const email = coordForm.email.trim();
+    if (!email) { setCoordEmailError("E-mailadres is verplicht"); return; }
+    if (!email.includes("@") || !email.includes(".")) { setCoordEmailError("Voer een geldig e-mailadres in"); return; }
+    setCoordEmailError("");
     setCoordSaving(true);
     const res = await fetch(`/api/admin/organizations/${org.id}/coordinators`, {
       method: "POST",
@@ -135,6 +141,7 @@ export default function OrgDetail() {
     if (d.id) {
       setCoordinators((prev) => [...prev, { ...d, vacancies: d.vacancies || [] }]);
       setCoordInviteLink(d.activateUrl || null);
+      setCoordInviteId(d.id);
       setCoordLinkCopied(false);
     }
     setCoordSaving(false);
@@ -464,9 +471,13 @@ export default function OrgDetail() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">E-mailadres *</label>
-                    <input type="email" value={coordForm.email} onChange={(e) => setCoordForm((f) => ({ ...f, email: e.target.value }))} placeholder="naam@kerk.nl"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <p className="text-xs text-gray-400 mt-1">Nodig om in te loggen — je kiest zelf via welk kanaal je de link deelt.</p>
+                    <input type="email" value={coordForm.email}
+                      onChange={(e) => { setCoordForm((f) => ({ ...f, email: e.target.value })); setCoordEmailError(""); }}
+                      placeholder="naam@kerk.nl"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${coordEmailError ? "border-red-400" : "border-gray-300"}`} />
+                    {coordEmailError
+                      ? <p className="text-xs text-red-500 mt-1">{coordEmailError}</p>
+                      : <p className="text-xs text-gray-400 mt-1">Nodig om in te loggen — je kiest zelf via welk kanaal je de link deelt.</p>}
                   </div>
                   {org.vacancies.length > 0 && (
                     <div>
@@ -500,7 +511,9 @@ export default function OrgDetail() {
                 name={coordForm.name}
                 email={coordForm.email}
                 orgName={org.name}
-                onClose={() => { setShowCoordModal(false); setCoordInviteLink(null); setCoordForm({ name: "", email: "", vacancyIds: [] }); }}
+                orgId={org.id}
+                coordId={coordInviteId!}
+                onClose={() => { setShowCoordModal(false); setCoordInviteLink(null); setCoordInviteId(null); setCoordForm({ name: "", email: "", vacancyIds: [] }); }}
               />
             )}
           </div>
@@ -512,14 +525,17 @@ export default function OrgDetail() {
 }
 
 // ── Deel-scherm na aanmaken coördinator ─────────────────────────────
-function CoordShareStep({ link, name, email, orgName, onClose }: {
-  link: string; name: string; email: string; orgName: string; onClose: () => void;
+function CoordShareStep({ link, name, email, orgName, orgId, coordId, onClose }: {
+  link: string; name: string; email: string; orgName: string;
+  orgId: string; coordId: string; onClose: () => void;
 }) {
   const greeting = name ? `Hoi ${name},` : "Hoi,";
   const defaultMsg = `${greeting}\n\nJe bent uitgenodigd als coördinator bij ${orgName} via Gavenroute.\n\nActiveer je account via deze link:\n${link}\n\nDe link is 30 dagen geldig.`;
   const [msg, setMsg] = useState(defaultMsg);
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sent" | "error">("idle");
 
   function copyText() {
     navigator.clipboard.writeText(msg);
@@ -530,9 +546,24 @@ function CoordShareStep({ link, name, email, orgName, onClose }: {
     setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000);
   }
 
+  async function sendViaBrevo() {
+    setEmailSending(true); setEmailStatus("idle");
+    const res = await fetch(`/api/admin/organizations/${orgId}/coordinators/send-invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        coordId,
+        subject: `Uitnodiging coördinator — ${orgName}`,
+        body: msg,
+      }),
+    });
+    setEmailSending(false);
+    setEmailStatus(res.ok ? "sent" : "error");
+    if (res.ok) setTimeout(() => setEmailStatus("idle"), 4000);
+  }
+
   const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
   const smsUrl = `sms:${email ? encodeURIComponent(email) : ""}?body=${encodeURIComponent(msg)}`;
-  const mailUrl = `mailto:${email || ""}?subject=${encodeURIComponent(`Uitnodiging coördinator — ${orgName}`)}&body=${encodeURIComponent(msg)}`;
 
   return (
     <>
@@ -540,7 +571,7 @@ function CoordShareStep({ link, name, email, orgName, onClose }: {
         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-base">✓</div>
         <h2 className="font-bold text-gray-900">Coördinator aangemaakt</h2>
       </div>
-      <p className="text-sm text-gray-500 mb-4">Pas de tekst aan en verstuur de uitnodiging via WhatsApp, e-mail, sms of kopieer de link.</p>
+      <p className="text-sm text-gray-500 mb-4">Pas de tekst aan en verstuur de uitnodiging via het kanaal naar keuze.</p>
 
       <div className="mb-3">
         <label className="block text-xs font-medium text-gray-600 mb-1">Berichttekst — pas aan naar wens</label>
@@ -549,27 +580,42 @@ function CoordShareStep({ link, name, email, orgName, onClose }: {
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-3">
+        {/* WhatsApp */}
         <a href={waUrl} target="_blank" rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-[#25D366] text-white hover:bg-[#1ebe5d]">
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.555 4.104 1.523 5.83L0 24l6.336-1.495A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.028-1.382l-.36-.214-3.732.88.937-3.636-.236-.374A9.818 9.818 0 1112 21.818z"/></svg>
           WhatsApp
         </a>
-        <a href={mailUrl}
-          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">
+
+        {/* E-mail via Brevo */}
+        <button onClick={sendViaBrevo} disabled={emailSending}
+          className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium disabled:opacity-60 ${
+            emailStatus === "sent" ? "bg-green-600 text-white" :
+            emailStatus === "error" ? "bg-red-500 text-white" :
+            "bg-blue-600 text-white hover:bg-blue-700"
+          }`}>
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-          E-mail
-        </a>
+          {emailSending ? "Versturen…" : emailStatus === "sent" ? "Verzonden!" : emailStatus === "error" ? "Mislukt" : "E-mail versturen"}
+        </button>
+
+        {/* SMS */}
         <a href={smsUrl}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-gray-700 text-white hover:bg-gray-800">
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
           Sms / iMessage
         </a>
+
+        {/* Kopieer tekst */}
         <button onClick={copyText}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-gray-500"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
           {copied ? "Gekopieerd!" : "Tekst kopiëren"}
         </button>
       </div>
+
+      {emailStatus === "error" && (
+        <p className="text-xs text-red-500 mb-3">E-mail versturen mislukt. Probeer WhatsApp of kopieer de tekst.</p>
+      )}
 
       <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-4">
         <span className="text-xs text-gray-500 truncate flex-1">{link}</span>
