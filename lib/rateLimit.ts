@@ -1,27 +1,27 @@
-// In-memory rate limiter — per IP, resets elke minuut
-// Voor productie op één server voldoende; bij meerdere instances: Redis gebruiken
+const attempts = new Map<string, { count: number; resetAt: number }>();
 
-const store = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minuten
 
-export function rateLimit(ip: string, limit = 10): boolean {
+export function checkRateLimit(ip: string): { blocked: boolean; remaining: number; retryAfterSeconds: number } {
   const now = Date.now();
-  const entry = store.get(ip);
+  const entry = attempts.get(ip);
 
   if (!entry || now > entry.resetAt) {
-    store.set(ip, { count: 1, resetAt: now + 60_000 });
-    return true; // toegestaan
+    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return { blocked: false, remaining: MAX_ATTEMPTS - 1, retryAfterSeconds: 0 };
   }
 
-  if (entry.count >= limit) return false; // geblokkeerd
+  entry.count += 1;
 
-  entry.count++;
-  return true;
+  if (entry.count > MAX_ATTEMPTS) {
+    const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000);
+    return { blocked: true, remaining: 0, retryAfterSeconds };
+  }
+
+  return { blocked: false, remaining: MAX_ATTEMPTS - entry.count, retryAfterSeconds: 0 };
 }
 
-export function getIp(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown"
-  );
+export function resetRateLimit(ip: string) {
+  attempts.delete(ip);
 }

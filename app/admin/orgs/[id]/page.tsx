@@ -571,8 +571,13 @@ function CoordShareStep({ link, name, email, orgName, orgId, coordId, vacancyTit
       }),
     });
     setEmailSending(false);
-    setEmailStatus(res.ok ? "sent" : "error");
-    if (res.ok) { onInviteSent(coordId); setTimeout(() => setEmailStatus("idle"), 4000); }
+    if (res.ok) {
+      onInviteSent(coordId);
+      setEmailStatus("sent");
+      setTimeout(() => onClose(), 1500);
+    } else {
+      setEmailStatus("error");
+    }
   }
 
   const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -626,6 +631,9 @@ function CoordShareStep({ link, name, email, orgName, orgId, coordId, vacancyTit
         </button>
       </div>
 
+      {emailStatus === "sent" && (
+        <p className="text-sm text-green-600 font-medium mb-3">✓ Mail verstuurd — venster sluit vanzelf…</p>
+      )}
       {emailStatus === "error" && (
         <p className="text-xs text-red-500 mb-3">E-mail versturen mislukt. Probeer WhatsApp of kopieer de tekst.</p>
       )}
