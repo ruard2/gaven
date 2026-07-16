@@ -25,3 +25,21 @@ export function checkRateLimit(ip: string): { blocked: boolean; remaining: numbe
 export function resetRateLimit(ip: string) {
   attempts.delete(ip);
 }
+
+// Compat helpers voor bestaande OpenAI-routes
+const openAiAttempts = new Map<string, { count: number; resetAt: number }>();
+
+export function getIp(req: { headers: { get: (k: string) => string | null } }): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
+export function rateLimit(ip: string, max: number, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const entry = openAiAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    openAiAttempts.set(ip, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= max;
+}
