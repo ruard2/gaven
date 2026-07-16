@@ -47,6 +47,7 @@ export default function OrgDetail() {
   const [coordLinkCopied, setCoordLinkCopied] = useState(false);
   const [coordInviteId, setCoordInviteId] = useState<string | null>(null);
   const [coordEmailError, setCoordEmailError] = useState("");
+  const [coordVacancyTitles, setCoordVacancyTitles] = useState<string[]>([]);
   const [editingCoord, setEditingCoord] = useState<Coordinator | null>(null);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -142,6 +143,7 @@ export default function OrgDetail() {
       setCoordinators((prev) => [...prev, { ...d, vacancies: d.vacancies || [] }]);
       setCoordInviteLink(d.activateUrl || null);
       setCoordInviteId(d.id);
+      setCoordVacancyTitles(d.vacancyTitles || []);
       setCoordLinkCopied(false);
     }
     setCoordSaving(false);
@@ -348,8 +350,13 @@ export default function OrgDetail() {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           c.status === "active" ? "bg-green-100 text-green-700" :
                           c.status === "invited" ? "bg-amber-100 text-amber-700" :
-                          "bg-gray-100 text-gray-500"
-                        }`}>{c.status === "active" ? "Actief" : c.status === "invited" ? "Uitgenodigd" : "Inactief"}</span>
+                          c.status === "pending" ? "bg-gray-100 text-gray-500" :
+                          "bg-gray-100 text-gray-400"
+                        }`}>{
+                          c.status === "active" ? "Actief" :
+                          c.status === "invited" ? "Uitgenodigd" :
+                          c.status === "pending" ? "Aangemaakt" : "Inactief"
+                        }</span>
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">{c.email}</p>
                       {c.vacancies.length > 0 && (
@@ -513,7 +520,9 @@ export default function OrgDetail() {
                 orgName={org.name}
                 orgId={org.id}
                 coordId={coordInviteId!}
-                onClose={() => { setShowCoordModal(false); setCoordInviteLink(null); setCoordInviteId(null); setCoordForm({ name: "", email: "", vacancyIds: [] }); }}
+                vacancyTitles={coordVacancyTitles}
+                onInviteSent={(coordId) => setCoordinators((prev) => prev.map((c) => c.id === coordId ? { ...c, status: "invited" } : c))}
+                onClose={() => { setShowCoordModal(false); setCoordInviteLink(null); setCoordInviteId(null); setCoordVacancyTitles([]); setCoordForm({ name: "", email: "", vacancyIds: [] }); }}
               />
             )}
           </div>
@@ -525,12 +534,16 @@ export default function OrgDetail() {
 }
 
 // ── Deel-scherm na aanmaken coördinator ─────────────────────────────
-function CoordShareStep({ link, name, email, orgName, orgId, coordId, onClose }: {
+function CoordShareStep({ link, name, email, orgName, orgId, coordId, vacancyTitles, onInviteSent, onClose }: {
   link: string; name: string; email: string; orgName: string;
-  orgId: string; coordId: string; onClose: () => void;
+  orgId: string; coordId: string; vacancyTitles: string[];
+  onInviteSent: (coordId: string) => void; onClose: () => void;
 }) {
   const greeting = name ? `Hoi ${name},` : "Hoi,";
-  const defaultMsg = `${greeting}\n\nJe bent uitgenodigd als coördinator bij ${orgName} via Gavenroute.\n\nActiveer je account via deze link:\n${link}\n\nDe link is 30 dagen geldig.`;
+  const vacancyLine = vacancyTitles.length > 0
+    ? `\nJe bent gevraagd als coördinator van: ${vacancyTitles.join(", ")}.\n`
+    : "";
+  const defaultMsg = `${greeting}\n\nJe bent uitgenodigd als coördinator bij ${orgName} via Gavenroute.${vacancyLine}\n\nVia deze rol beheer je vrijwilligers en vacatures in jouw eigen dashboard. Activeer je account via de link hieronder en stel een wachtwoord in.\n\nActiveer je account:\n${link}\n\nDe link is 30 dagen geldig.\n\nHartelijke groeten,\n${orgName}`;
   const [msg, setMsg] = useState(defaultMsg);
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -559,7 +572,7 @@ function CoordShareStep({ link, name, email, orgName, orgId, coordId, onClose }:
     });
     setEmailSending(false);
     setEmailStatus(res.ok ? "sent" : "error");
-    if (res.ok) setTimeout(() => setEmailStatus("idle"), 4000);
+    if (res.ok) { onInviteSent(coordId); setTimeout(() => setEmailStatus("idle"), 4000); }
   }
 
   const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;

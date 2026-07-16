@@ -36,8 +36,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       subject || `Uitnodiging coördinator — ${org.name}`,
       html,
       org.name,
-      admin?.email,  // reply-to → admin
+      admin?.email,
     );
+    // Status bijwerken naar 'invited' nu de uitnodiging daadwerkelijk verstuurd is
+    await prisma.coordinator.update({ where: { id: coordId }, data: { status: "invited" } });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("Send invite error:", e);
