@@ -13,17 +13,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     where: { OR: [{ slug }, { publicCode: slug }], isActive: true },
     select: { name: true, place: true, welcomeText: true, organizationType: true },
   });
-  if (!org) return { title: "Gavenroute" };
+  if (!org) return { title: "Gavenmatch" };
 
   const description = org.welcomeText || "Ontdek waar jouw gaven kunnen dienen. Vul in enkele minuten je profiel in.";
 
   return {
-    title: `${org.name} — Gavenroute`,
+    title: `${org.name} — Gavenmatch`,
     description,
     openGraph: {
-      title: `${org.name} — Gavenroute`,
+      title: `${org.name} — Gavenmatch`,
       description,
-      siteName: "Gavenroute",
+      siteName: "Gavenmatch",
       locale: "nl_NL",
       type: "website",
     },
@@ -64,7 +64,7 @@ export default async function GroupPage({ params }: Props) {
         </div>
 
         <p className="text-sm font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>
-          Gavenroute
+          Gavenmatch
         </p>
         <h1 className="text-2xl font-bold text-gray-900 mb-3">{org.name}</h1>
         {org.place && <p className="text-sm text-gray-500 mb-4">{org.place}</p>}

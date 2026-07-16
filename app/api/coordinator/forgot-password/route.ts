@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       data: { coordinatorId: coord.id, token, expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000) },
     });
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = process.env.APP_URL || "https://www.gavenmatch.nl";
     const resetUrl = `${appUrl}/coordinator/wachtwoord-instellen/${token}`;
 
     if (process.env.BREVO_API_KEY) {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           sender: { name: coord.organization.name, email: from },
           to: [{ email: coord.email, name: coord.name }],
-          subject: "Wachtwoord opnieuw instellen — Gavenroute",
+          subject: "Wachtwoord opnieuw instellen — Gavenmatch",
           htmlContent: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
             <h2 style="color:#1d4ed8;">Wachtwoord opnieuw instellen</h2>
             <p>Hoi ${coord.name}, klik op de link hieronder. Geldig 2 uur.</p>

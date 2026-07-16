@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const org = await prisma.organization.findFirst({ where: { id, adminId } });
   if (!org) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const appUrl = process.env.APP_URL || "https://www.gavenmatch.nl";
   const url = `${appUrl}/g/${org.slug}`;
   const format = new URL(req.url).searchParams.get("format") || "png";
 

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = process.env.APP_URL || "https://www.gavenmatch.nl";
     const activateUrl = `${appUrl}/coordinator/activeer/${inviteToken}`;
 
     if (process.env.BREVO_API_KEY) {

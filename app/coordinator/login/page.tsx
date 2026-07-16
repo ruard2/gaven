@@ -32,7 +32,7 @@ export default function CoordinatorLoginPage() {
           </svg>
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-1">Coördinator inloggen</h1>
-        <p className="text-sm text-gray-500 mb-6">Beheer jouw taken via Gavenroute.</p>
+        <p className="text-sm text-gray-500 mb-6">Beheer jouw taken via Gavenmatch.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

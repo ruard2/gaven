@@ -31,7 +31,7 @@ export default function AdminLogin() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Beheerder inloggen</h1>
-        <p className="text-sm text-gray-500 mb-6">Gavenroute beheerpaneel</p>
+        <p className="text-sm text-gray-500 mb-6">Gavenmatch beheerpaneel</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

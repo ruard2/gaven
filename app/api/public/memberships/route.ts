@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
       `<p>Hoi ${coord.name},</p>
       <p><strong>${participant.name}</strong> (${participant.email}) heeft aangegeven dat hij/zij al actief is bij:</p>
       <ul>${titles.map((t) => `<li>${t}</li>`).join("")}</ul>
-      <p>Je kunt dit bekijken in je <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://gavenroute.nl"}/coordinator/dashboard">coördinator-dashboard</a>.</p>`,
-      "Gavenroute"
+      <p>Je kunt dit bekijken in je <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://www.gavenmatch.nl"}/coordinator/dashboard">coördinator-dashboard</a>.</p>`,
+      "Gavenmatch"
     ).catch(() => {});
   }
 

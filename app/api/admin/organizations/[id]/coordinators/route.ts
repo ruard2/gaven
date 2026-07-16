@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })
     : [];
 
-  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const appUrl = process.env.APP_URL || "https://www.gavenmatch.nl";
   const activateUrl = `${appUrl}/coordinator/activeer/${inviteToken}`;
 
   return NextResponse.json({

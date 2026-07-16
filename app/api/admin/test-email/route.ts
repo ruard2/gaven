@@ -26,9 +26,9 @@ export async function POST(req: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sender: { name: "Gavenroute Test", email: from },
+          sender: { name: "Gavenmatch Test", email: from },
           to: [{ email: to }],
-          subject: "Gavenroute e-mail test",
+          subject: "Gavenmatch e-mail test",
           htmlContent: "<p>Brevo verbinding werkt vanuit Railway!</p>",
         }),
       });

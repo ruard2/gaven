@@ -296,7 +296,7 @@ export default function OrgDetail() {
 
         {/* Hoe werkt het */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Hoe werkt Gavenroute?</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Hoe werkt Gavenmatch?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { stap: "1", titel: "Coördinatoren uitnodigen", tekst: "Voeg coördinatoren toe die hun eigen taken beheren via een persoonlijk dashboard. Zij houden vrijwilligers bij en sturen het rooster.", color: "#2563eb" },
@@ -543,7 +543,7 @@ function CoordShareStep({ link, name, email, orgName, orgId, coordId, vacancyTit
   const vacancyLine = vacancyTitles.length > 0
     ? `\nJe bent gevraagd als coördinator van: ${vacancyTitles.join(", ")}.\n`
     : "";
-  const defaultMsg = `${greeting}\n\nJe bent uitgenodigd als coördinator bij ${orgName} via Gavenroute.${vacancyLine}\n\nVia deze rol beheer je vrijwilligers en vacatures in jouw eigen dashboard. Activeer je account via de link hieronder en stel een wachtwoord in.\n\nActiveer je account:\n${link}\n\nDe link is 30 dagen geldig.\n\nHartelijke groeten,\n${orgName}`;
+  const defaultMsg = `${greeting}\n\nJe bent uitgenodigd als coördinator bij ${orgName} via Gavenmatch.${vacancyLine}\n\nVia deze rol beheer je vrijwilligers en vacatures in jouw eigen dashboard. Activeer je account via de link hieronder en stel een wachtwoord in.\n\nActiveer je account:\n${link}\n\nDe link is 30 dagen geldig.\n\nHartelijke groeten,\n${orgName}`;
   const [msg, setMsg] = useState(defaultMsg);
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);

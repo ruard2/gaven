@@ -60,7 +60,7 @@ function card(content: string) {
 }
 
 function footer(orgName: string) {
-  return `<p style="font-size:12px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:16px;margin-top:32px;">Gavenroute &bull; ${orgName}</p>`;
+  return `<p style="font-size:12px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:16px;margin-top:32px;">Gavenmatch &bull; ${orgName}</p>`;
 }
 
 const RESPONSE_LABELS: Record<string, string> = {
@@ -125,7 +125,7 @@ export async function sendApplicationEmail(data: {
 
       <p>Hoi ${data.contactPersonName},</p>
 
-      <p>Er heeft zich iemand aangemeld via Gavenroute voor de taak <strong>${data.vacancyTitle}</strong>.
+      <p>Er heeft zich iemand aangemeld via Gavenmatch voor de taak <strong>${data.vacancyTitle}</strong>.
       Neem zo snel mogelijk contact op!</p>
 
       ${card(`

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         ${ctaBlock}
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
         <p style="font-size:12px;color:#9ca3af;margin:0;">
-          Je ontvangt deze uitnodiging via Gavenroute &bull; ${coord.organization.name}
+          Je ontvangt deze uitnodiging via Gavenmatch &bull; ${coord.organization.name}
         </p>
       </div>
     </div>

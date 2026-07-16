@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
             ${entry.notes ? `<p style="background:#f3f4f6;border-radius:8px;padding:12px;font-size:14px;color:#374151;">${entry.notes}</p>` : ""}
             <p>Vragen? Neem contact op met de coördinator.</p>
             <p style="font-size:12px;color:#9ca3af;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px;">
-              Verstuurd via Gavenroute &bull; Coördinator: ${senderName}
+              Verstuurd via Gavenmatch &bull; Coördinator: ${senderName}
             </p>
           </div>`,
           `Coördinator ${senderName}`,
