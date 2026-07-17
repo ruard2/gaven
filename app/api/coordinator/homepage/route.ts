@@ -27,6 +27,7 @@ export async function GET() {
       id: true,
       name: true,
       roleTitle: true,
+      pageIntro: true,
       pageSlug: true,
       organizationId: true,
       organization: { select: { slug: true, name: true, primaryColor: true, logoUrl: true } },
@@ -59,12 +60,25 @@ export async function PATCH(req: NextRequest) {
   const coord = await requireCoordinator();
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { roleTitle } = await req.json();
-  const trimmed = roleTitle?.trim() || null;
+  const body = await req.json();
+
+  // Alleen intro bijwerken (rol blijft ongewijzigd)
+  if (!("roleTitle" in body) && "pageIntro" in body) {
+    await prisma.coordinator.update({
+      where: { id: coord.id },
+      data: { pageIntro: body.pageIntro?.trim() || null },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  const trimmed = body.roleTitle?.trim() || null;
 
   await prisma.coordinator.update({
     where: { id: coord.id },
-    data: { roleTitle: trimmed },
+    data: {
+      roleTitle: trimmed,
+      ...("pageIntro" in body && { pageIntro: body.pageIntro?.trim() || null }),
+    },
   });
 
   // Paginalink volgt de functienaam

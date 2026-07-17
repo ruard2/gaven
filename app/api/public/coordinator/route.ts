@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       name: true,
       email: true,
       roleTitle: true,
+      pageIntro: true,
       pageSlug: true,
       pageSections: {
         orderBy: { order: "asc" },

@@ -71,7 +71,7 @@ export default function CoordinatorDashboard() {
   const [customCategory, setCustomCategory] = useState("");
 
   // Coördinator homepage
-  interface HomepageData { roleTitle: string | null; pageUrl: string; pageSections: TeamSection[] }
+  interface HomepageData { roleTitle: string | null; pageIntro: string | null; pageUrl: string; pageSections: TeamSection[] }
   const [showHomepage, setShowHomepage] = useState(false);
   const [homepageData, setHomepageData] = useState<HomepageData | null>(null);
   const [homepageLoading, setHomepageLoading] = useState(false);
@@ -82,6 +82,10 @@ export default function CoordinatorDashboard() {
   const [homepageAdding, setHomepageAdding] = useState(false);
   const [homepageEditId, setHomepageEditId] = useState<string | null>(null);
   const [homepageEditForm, setHomepageEditForm] = useState({ title: "", content: "", url: "" });
+
+  // Homepage intro
+  const [homepageIntro, setHomepageIntro] = useState("");
+  const [savingIntro, setSavingIntro] = useState(false);
 
   // Homepage delen
   const [showShare, setShowShare] = useState(false);
@@ -95,8 +99,23 @@ export default function CoordinatorDashboard() {
     setShowHomepage(true); setHomepageLoading(true);
     setHomepageRoleTitle(coord?.roleTitle || "");
     const r = await fetch("/api/coordinator/homepage");
-    if (r.ok) setHomepageData(await r.json());
+    if (r.ok) {
+      const d = await r.json();
+      setHomepageData(d);
+      setHomepageIntro(d.pageIntro || "");
+    }
     setHomepageLoading(false);
+  }
+
+  async function saveHomepageIntro() {
+    setSavingIntro(true);
+    await fetch("/api/coordinator/homepage", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageIntro: homepageIntro }),
+    });
+    setHomepageData((d) => d ? { ...d, pageIntro: homepageIntro.trim() || null } : d);
+    setSavingIntro(false);
+    flash("Introductie opgeslagen");
   }
 
   async function addHomepageSection() {
@@ -851,6 +870,21 @@ export default function CoordinatorDashboard() {
                     className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded-lg flex-shrink-0">
                     Wijzigen
                   </button>
+                </div>
+
+                {/* Introductie over de rol */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Over jouw team <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                  <p className="text-xs text-gray-400 mb-2">Korte uitleg wat jullie doen — verschijnt bovenaan je homepage onder je naam.</p>
+                  <textarea value={homepageIntro} onChange={(e) => setHomepageIntro(e.target.value)}
+                    placeholder="bijv. Wij zorgen elke week dat het gebouw er netjes bij staat. Iedereen draait ongeveer één keer per maand mee."
+                    rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
+                  {homepageIntro.trim() !== (homepageData.pageIntro || "") && (
+                    <button onClick={saveHomepageIntro} disabled={savingIntro}
+                      className="mt-1.5 px-4 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 disabled:opacity-50">
+                      {savingIntro ? "Opslaan…" : "Introductie opslaan"}
+                    </button>
+                  )}
                 </div>
 
                 {/* Paginalink */}

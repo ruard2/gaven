@@ -36,7 +36,7 @@ interface RosterEntry { id: string; name: string; date: string | null; role: str
 interface Roster { id: string; title: string; entries: RosterEntry[]; }
 interface PageData {
   org: { name: string; slug: string; primaryColor: string; logoUrl: string | null };
-  coordinator: { name: string; email: string; roleTitle: string | null; pageSections: Section[] };
+  coordinator: { id: string; name: string; email: string; roleTitle: string | null; pageIntro: string | null; pageSections: Section[] };
   rosters: Roster[];
 }
 
@@ -54,11 +54,20 @@ export default function CoordinatorPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<DocumentMeta | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     fetch(`/api/public/coordinator?orgSlug=${orgSlug}&coordSlug=${coordSlug}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d); })
+      .then((d) => {
+        if (d.error) { setError(d.error); return; }
+        setData(d);
+        // Terugknop alleen voor de ingelogde eigenaar van deze pagina
+        fetch("/api/coordinator/me")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((me) => { if (me?.id && me.id === d.coordinator.id) setIsOwner(true); })
+          .catch(() => {});
+      })
       .catch(() => setError("Kon pagina niet laden"))
       .finally(() => setLoading(false));
   }, [orgSlug, coordSlug]);
@@ -90,6 +99,15 @@ export default function CoordinatorPage() {
             </div>
           )}
           <span className="font-semibold text-gray-900">{org.name}</span>
+          {isOwner && (
+            <a href="/coordinator/dashboard"
+              className="ml-auto flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Naar dashboard
+            </a>
+          )}
         </div>
       </header>
 
@@ -106,7 +124,11 @@ export default function CoordinatorPage() {
               <a href={`mailto:${coordinator.email}`} className="text-sm text-blue-600 hover:underline mt-1 inline-block">{coordinator.email}</a>
             </div>
           </div>
-
+          {coordinator.pageIntro && (
+            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line mt-4 pt-4 border-t border-gray-100">
+              {coordinator.pageIntro}
+            </p>
+          )}
         </div>
 
         {/* Roosters */}

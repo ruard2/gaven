@@ -48,6 +48,7 @@ model Coordinator {
   inviteExpiresAt DateTime?
   status          String   @default("invited")
   roleTitle       String?
+  pageIntro       String?
   pageSlug        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
