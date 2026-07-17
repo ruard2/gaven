@@ -11,7 +11,7 @@ interface Vacancy {
   status: string; whyValuable?: string | null; concreteTasks?: string | null; firstStep?: string | null;
   applications: Application[]; memberships: Member[];
 }
-interface Coordinator { id: string; name: string; email: string; organization: { name: string; slug: string; primaryColor: string }; }
+interface Coordinator { id: string; name: string; email: string; roleTitle: string | null; organization: { name: string; slug: string; primaryColor: string }; }
 interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
 interface RosterEntry { id: string; name: string; email?: string | null; date?: string | null; role?: string | null; notes?: string | null; }
 interface Roster { id: string; vacancyId?: string | null; title: string; reminderDays: number; entries: RosterEntry[]; }
@@ -96,12 +96,9 @@ export default function CoordinatorDashboard() {
 
   async function openHomepage() {
     setShowHomepage(true); setHomepageLoading(true);
+    setHomepageRoleTitle(coord?.roleTitle || "");
     const r = await fetch("/api/coordinator/homepage");
-    if (r.ok) {
-      const d = await r.json();
-      setHomepageData(d);
-      setHomepageRoleTitle(d.roleTitle || "");
-    }
+    if (r.ok) setHomepageData(await r.json());
     setHomepageLoading(false);
   }
 
@@ -111,6 +108,7 @@ export default function CoordinatorDashboard() {
       body: JSON.stringify({ roleTitle: homepageRoleTitle }),
     });
     setHomepageData((d) => d ? { ...d, roleTitle: homepageRoleTitle || null } : d);
+    setCoord((c) => c ? { ...c, roleTitle: homepageRoleTitle || null } : c);
     flash("Opgeslagen");
   }
 
@@ -376,8 +374,8 @@ export default function CoordinatorDashboard() {
               <span className="text-sm font-semibold text-gray-700">{coord?.organization.name}</span>
             </div>
             <p className="text-xs text-gray-400 mt-0">Coördinator: {coord?.name}</p>
-            {vacancyTitles.length > 0 && (
-              <p className="text-xs text-gray-400">Coördinator van: {vacancyTitles.join(", ")}</p>
+            {coord?.roleTitle && (
+              <p className="text-xs text-gray-400">Coördinator van: {coord.roleTitle}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -685,7 +683,7 @@ export default function CoordinatorDashboard() {
 
             {settingsTab === "coordinaties" && (
               <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-4">
-                <p className="text-sm text-gray-500">Vink aan welke vacatures jij coördineert.</p>
+                <p className="text-sm text-gray-500">Vink aan welke wervende vacatures jij beheert (voor het aantrekken van vrijwilligers).</p>
                 {loadingAssignments ? <p className="text-sm text-gray-400 text-center py-4">Laden…</p> : (
                   <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                     {availableForAssignment.map((v) => (

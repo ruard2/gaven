@@ -2,27 +2,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
-
-const CATEGORIES = ["Muziek & eredienst", "Praktisch", "Jeugd", "Bestuur", "Communicatie", "Overig"];
-
 export default function ActivatePage() {
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
   const [info, setInfo] = useState<{ name: string; email: string } | null>(null);
-  const [orgVacancies, setOrgVacancies] = useState<OrgVacancy[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [ownName, setOwnName] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // Eigen functie toevoegen
-  const [newTitle, setNewTitle] = useState("");
-  const [newCategory, setNewCategory] = useState(CATEGORIES[0]);
-  const [showNewForm, setShowNewForm] = useState(false);
 
   useEffect(() => {
     fetch(`/api/coordinator/activate?token=${token}`)
@@ -32,16 +22,10 @@ export default function ActivatePage() {
         if (d.alreadyActive) { router.replace("/coordinator/login"); return; }
         setInfo(d);
         setOwnName(d.name || "");
-        setOrgVacancies(d.orgVacancies || []);
-        setSelectedIds((d.orgVacancies || []).filter((v: OrgVacancy) => v.assigned).map((v: OrgVacancy) => v.id));
       })
       .catch(() => setError("Kon gegevens niet laden"))
       .finally(() => setLoading(false));
   }, [token, router]);
-
-  function toggleVacancy(id: string) {
-    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,15 +35,7 @@ export default function ActivatePage() {
     const res = await fetch("/api/coordinator/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token,
-        password,
-        name: ownName.trim() || undefined,
-        vacancyIds: selectedIds,
-        newFunction: showNewForm && newTitle.trim()
-          ? { title: newTitle.trim(), category: newCategory }
-          : null,
-      }),
+      body: JSON.stringify({ token, password, name: ownName.trim() || undefined, roleTitle: roleTitle.trim() || undefined }),
     });
     const d = await res.json();
     if (d.ok) { router.push("/coordinator/dashboard"); }
@@ -78,9 +54,6 @@ export default function ActivatePage() {
     </div>
   );
 
-  const availableVacancies = orgVacancies.filter((v) => !v.taken);
-  const takenVacancies = orgVacancies.filter((v) => v.taken);
-
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="bg-white rounded-2xl border border-gray-200 p-8 w-full max-w-sm mx-auto">
@@ -90,7 +63,7 @@ export default function ActivatePage() {
           </svg>
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-1">Account activeren</h1>
-        <p className="text-sm text-gray-500 mb-6">Vul je naam in en stel een wachtwoord in om te beginnen.</p>
+        <p className="text-sm text-gray-500 mb-6">Vul je gegevens in om te beginnen als coördinator.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -102,6 +75,13 @@ export default function ActivatePage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
             <input value={info?.email || ""} disabled className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Jouw coördinatiefunctie</label>
+            <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)}
+              placeholder="bijv. Schoonmakers, Geluid, Koffie"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p className="text-xs text-gray-400 mt-1">Wat coördineer jij? Je kunt dit later aanpassen.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
@@ -116,78 +96,8 @@ export default function ActivatePage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          {/* Functies kiezen */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Welke functies coördineer jij?
-            </label>
-            <p className="text-xs text-gray-400 mb-2">Selecteer bestaande functies of voeg je eigen toe.</p>
-
-            {orgVacancies.length > 0 && (
-              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto mb-2">
-                {availableVacancies.map((v) => (
-                  <label key={v.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
-                    <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                    <div className="min-w-0">
-                      <span className="text-sm text-gray-800 block truncate">{v.title}</span>
-                      <span className="text-xs text-gray-400">{v.category}</span>
-                    </div>
-                  </label>
-                ))}
-                {takenVacancies.map((v) => (
-                  <label key={v.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-amber-50 cursor-pointer">
-                    <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
-                      className="rounded border-gray-300 text-amber-500 focus:ring-amber-400" />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm text-gray-700 block truncate">{v.title}</span>
-                      <span className="text-xs text-amber-500">Al gekoppeld — aanvraag gaat naar huidige coördinator</span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            {takenVacancies.length > 0 && selectedIds.some((id) => takenVacancies.find((v) => v.id === id)) && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
-                De huidige coördinator ontvangt een e-mail om jouw deelname te bevestigen.
-              </p>
-            )}
-
-            {/* Eigen functie toevoegen */}
-            {!showNewForm ? (
-              <button type="button" onClick={() => setShowNewForm(true)}
-                className="w-full flex items-center justify-center gap-2 border border-dashed border-blue-300 text-blue-600 rounded-lg px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Eigen functie toevoegen
-              </button>
-            ) : (
-              <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-blue-700">Nieuwe functie</span>
-                  <button type="button" onClick={() => { setShowNewForm(false); setNewTitle(""); }}
-                    className="text-xs text-gray-400 hover:text-gray-600">Annuleren</button>
-                </div>
-                <input
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Naam van de functie"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={saving || (showNewForm && !newTitle.trim())}
+          <button type="submit" disabled={saving}
             className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
             {saving ? "Activeren…" : "Account activeren"}
           </button>
