@@ -22,7 +22,7 @@ export async function ensureVacancySlug(
     where: { organizationId, id: { not: vacancyId } },
     select: { slug: true },
   });
-  const taken = new Set(siblings.map((v) => v.slug).filter(Boolean));
+  const taken = new Set(siblings.map((v: { slug: string | null }) => v.slug).filter(Boolean));
   let slug = base;
   let n = 2;
   while (taken.has(slug)) { slug = `${base}-${n++}`; }
