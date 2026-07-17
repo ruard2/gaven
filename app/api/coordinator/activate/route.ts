@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { token, password, name, vacancyIds } = await req.json();
+  const { token, password, name, vacancyIds, newFunction } = await req.json();
   if (!token || !password || password.length < 8) {
     return NextResponse.json({ error: "Wachtwoord moet minimaal 8 tekens zijn" }, { status: 400 });
   }
@@ -57,6 +57,19 @@ export async function POST(req: NextRequest) {
       ...(resolvedName && { name: resolvedName }),
     },
   });
+
+  // Eigen nieuwe functie aanmaken
+  if (newFunction?.title) {
+    await prisma.vacancy.create({
+      data: {
+        title: newFunction.title,
+        category: newFunction.category || "Overig",
+        organizationId: coord.organizationId,
+        coordinatorId: coord.id,
+        status: "open",
+      },
+    });
+  }
 
   if (Array.isArray(vacancyIds) && vacancyIds.length > 0) {
     // Vrije vacatures direct koppelen

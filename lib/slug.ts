@@ -10,8 +10,9 @@ export function generateSlug(name: string): string {
     .substring(0, 60);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ensureVacancySlug(
-  prisma: { vacancy: { findMany: (a: object) => Promise<{ slug: string | null }[]>; update: (a: object) => Promise<unknown> } },
+  prisma: any,
   vacancyId: string,
   title: string,
   organizationId: string
