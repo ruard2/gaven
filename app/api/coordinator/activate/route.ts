@@ -67,6 +67,9 @@ export async function POST(req: NextRequest) {
         organizationId: coord.organizationId,
         coordinatorId: coord.id,
         status: "open",
+        shortDescription: "",
+        contactPersonName: resolvedName || "",
+        contactPersonEmail: coord.email,
       },
     });
   }
