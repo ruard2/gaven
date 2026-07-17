@@ -3,6 +3,58 @@ import { prisma } from "@/lib/db";
 import { getAdminFromCookies } from "@/lib/auth";
 import crypto from "crypto";
 
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const adminId = await getAdminFromCookies();
+  if (!adminId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+
+  const coord = await prisma.coordinator.findFirst({
+    where: { id, organization: { adminId } },
+    include: {
+      organization: { select: { name: true } },
+      vacancies: {
+        select: {
+          id: true, title: true, category: true, status: true,
+          _count: { select: { applications: true, memberships: true } },
+        },
+      },
+    },
+  });
+  if (!coord) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const recentApplications = await prisma.application.findMany({
+    where: { vacancy: { coordinatorId: id } },
+    include: {
+      participant: { select: { name: true, email: true, phone: true } },
+      vacancy: { select: { title: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  const members = await prisma.vacancyMembership.findMany({
+    where: { vacancy: { coordinatorId: id } },
+    include: {
+      participant: { select: { name: true, email: true, phone: true } },
+      vacancy: { select: { title: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({
+    id: coord.id,
+    name: coord.name,
+    email: coord.email,
+    status: coord.status,
+    createdAt: coord.createdAt,
+    inviteExpiresAt: coord.inviteExpiresAt,
+    organizationName: coord.organization.name,
+    vacancies: coord.vacancies,
+    recentApplications,
+    members,
+  });
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const adminId = await getAdminFromCookies();
   if (!adminId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

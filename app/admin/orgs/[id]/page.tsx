@@ -9,6 +9,13 @@ interface Coordinator {
   id: string; name: string; email: string; status: string;
   vacancies: CoordinatorVacancy[];
 }
+interface CoordDetail {
+  id: string; name: string; email: string; status: string;
+  createdAt: string; inviteExpiresAt: string | null; organizationName: string;
+  vacancies: { id: string; title: string; category: string; status: string; _count: { applications: number; memberships: number } }[];
+  recentApplications: { id: string; createdAt: string; responseType: string; status: string; participant: { name: string; email: string; phone: string | null }; vacancy: { title: string } }[];
+  members: { id: string; createdAt: string; participant: { name: string; email: string; phone: string | null }; vacancy: { title: string } }[];
+}
 
 interface Org {
   id: string;
@@ -49,6 +56,8 @@ export default function OrgDetail() {
   const [coordEmailError, setCoordEmailError] = useState("");
   const [coordVacancyTitles, setCoordVacancyTitles] = useState<string[]>([]);
   const [editingCoord, setEditingCoord] = useState<Coordinator | null>(null);
+  const [coordDetail, setCoordDetail] = useState<CoordDetail | null>(null);
+  const [coordDetailLoading, setCoordDetailLoading] = useState(false);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
   const publicUrl = org ? `${appUrl}/g/${org.slug}` : "";
@@ -147,6 +156,14 @@ export default function OrgDetail() {
       setCoordLinkCopied(false);
     }
     setCoordSaving(false);
+  }
+
+  async function openCoordDetail(coordId: string) {
+    setCoordDetailLoading(true);
+    setCoordDetail(null);
+    const res = await fetch(`/api/admin/coordinators/${coordId}`);
+    if (res.ok) setCoordDetail(await res.json());
+    setCoordDetailLoading(false);
   }
 
   async function deleteCoordinator(coordId: string) {
@@ -342,7 +359,9 @@ export default function OrgDetail() {
           ) : (
             <div className="space-y-3">
               {coordinators.map((c) => (
-                <div key={c.id} className="border border-gray-200 rounded-xl px-4 py-3">
+                <div key={c.id}
+                  onClick={() => openCoordDetail(c.id)}
+                  className="border border-gray-200 rounded-xl px-4 py-3 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
@@ -363,11 +382,14 @@ export default function OrgDetail() {
                         <p className="text-xs text-gray-500 mt-1">{c.vacancies.map((v) => v.title).join(", ")}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       {c.status === "invited" && (
                         <button onClick={() => resendInvite(c.id)} className="text-xs text-blue-500 hover:underline">Opnieuw sturen</button>
                       )}
                       <button onClick={() => deleteCoordinator(c.id)} className="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
+                      <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -457,6 +479,33 @@ export default function OrgDetail() {
         </div>
 
       </main>
+
+      {/* Coordinator detail panel */}
+      {(coordDetail || coordDetailLoading) && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-0 sm:px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setCoordDetail(null); } }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
+            {coordDetailLoading ? (
+              <div className="p-10 text-center text-gray-400">Laden…</div>
+            ) : coordDetail && (
+              <CoordDetailPanel
+                detail={coordDetail}
+                onClose={() => setCoordDetail(null)}
+                onDelete={async (cid) => {
+                  if (!confirm("Coördinator verwijderen?")) return;
+                  await fetch(`/api/admin/coordinators/${cid}`, { method: "DELETE" });
+                  setCoordinators((prev) => prev.filter((c) => c.id !== cid));
+                  setCoordDetail(null);
+                }}
+                onResend={async (cid) => {
+                  const r = await fetch(`/api/admin/coordinators/${cid}`, { method: "POST" });
+                  if (r.ok) alert("Nieuwe uitnodigingslink verstuurd.");
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Coordinator modal */}
       {showCoordModal && (
@@ -649,5 +698,175 @@ function CoordShareStep({ link, name, email, orgName, orgId, coordId, vacancyTit
         Sluiten
       </button>
     </>
+  );
+}
+
+const RESP_LABELS: Record<string, string> = {
+  meedoen: "Wil meedoen", meekijken: "Wil meekijken",
+  contact: "Wil contact", vraag: "Heeft een vraag",
+};
+const STATUS_COLORS: Record<string, string> = {
+  new: "bg-blue-100 text-blue-700", contacted: "bg-yellow-100 text-yellow-700", done: "bg-green-100 text-green-700",
+};
+const STATUS_NL: Record<string, string> = { new: "Nieuw", contacted: "Contact gehad", done: "Afgerond" };
+
+function CoordDetailPanel({ detail, onClose, onDelete, onResend }: {
+  detail: CoordDetail;
+  onClose: () => void;
+  onDelete: (id: string) => void;
+  onResend: (id: string) => void;
+}) {
+  const [tab, setTab] = useState<"overzicht" | "aanmeldingen" | "vrijwilligers">("overzicht");
+  const statusColor = detail.status === "active" ? "bg-green-100 text-green-700"
+    : detail.status === "invited" ? "bg-amber-100 text-amber-700"
+    : "bg-gray-100 text-gray-500";
+  const statusLabel = detail.status === "active" ? "Actief"
+    : detail.status === "invited" ? "Uitgenodigd"
+    : detail.status === "pending" ? "Aangemaakt" : detail.status;
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-bold text-gray-900">{detail.name}</h2>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>{statusLabel}</span>
+          </div>
+          <p className="text-sm text-gray-500">{detail.email}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Toegevoegd op {new Date(detail.createdAt).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}
+          </p>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 -mt-1">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
+        {(["overzicht", "aanmeldingen", "vrijwilligers"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors capitalize ${
+              tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}>
+            {t === "overzicht" ? "Overzicht" : t === "aanmeldingen"
+              ? `Aanmeldingen (${detail.recentApplications.length})`
+              : `Vrijwilligers (${detail.members.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Overzicht tab */}
+      {tab === "overzicht" && (
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Functies</p>
+            {detail.vacancies.length === 0 ? (
+              <p className="text-sm text-gray-400">Geen functies gekoppeld.</p>
+            ) : (
+              <div className="space-y-2">
+                {detail.vacancies.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{v.title}</p>
+                      <p className="text-xs text-gray-400">{v.category}</p>
+                    </div>
+                    <div className="flex gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+                        {v._count.memberships} vrijwilligers
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        {v._count.applications} aanmeldingen
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Acties</p>
+            <div className="flex flex-col gap-2">
+              {detail.status !== "active" && (
+                <button onClick={() => onResend(detail.id)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-100">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  Nieuwe uitnodigingslink sturen
+                </button>
+              )}
+              <button onClick={() => onDelete(detail.id)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Coördinator verwijderen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Aanmeldingen tab */}
+      {tab === "aanmeldingen" && (
+        <div className="space-y-3">
+          {detail.recentApplications.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">Nog geen aanmeldingen.</p>
+          ) : detail.recentApplications.map((a) => (
+            <div key={a.id} className="border border-gray-100 rounded-xl p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{a.participant.name}</p>
+                  <p className="text-xs text-gray-400">{a.participant.email}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[a.status] || STATUS_COLORS.new}`}>
+                  {STATUS_NL[a.status] || a.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                <span className="font-medium text-gray-700">{a.vacancy.title}</span>
+                <span>{RESP_LABELS[a.responseType] || a.responseType}</span>
+                <span>{new Date(a.createdAt).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}</span>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <a href={`mailto:${a.participant.email}`}
+                  className="text-xs text-blue-600 hover:underline">E-mail</a>
+                {a.participant.phone && (
+                  <a href={`tel:${a.participant.phone}`}
+                    className="text-xs text-blue-600 hover:underline">Bellen</a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Vrijwilligers tab */}
+      {tab === "vrijwilligers" && (
+        <div className="space-y-3">
+          {detail.members.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">Nog geen vrijwilligers toegevoegd.</p>
+          ) : detail.members.map((m) => (
+            <div key={m.id} className="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{m.participant.name}</p>
+                <p className="text-xs text-gray-400">{m.vacancy.title}</p>
+              </div>
+              <div className="flex gap-2">
+                <a href={`mailto:${m.participant.email}`}
+                  className="text-xs text-blue-600 hover:underline">E-mail</a>
+                {m.participant.phone && (
+                  <a href={`tel:${m.participant.phone}`}
+                    className="text-xs text-blue-600 hover:underline">Bellen</a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
