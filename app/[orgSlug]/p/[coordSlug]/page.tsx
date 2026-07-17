@@ -3,9 +3,19 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 interface Section { id: string; type: string; title: string; content: string | null; url: string | null; }
+interface RosterEntry { id: string; name: string; date: string | null; role: string | null; notes: string | null; }
+interface Roster { id: string; title: string; entries: RosterEntry[]; }
 interface PageData {
   org: { name: string; slug: string; primaryColor: string; logoUrl: string | null };
   coordinator: { name: string; email: string; roleTitle: string | null; pageSections: Section[] };
+  rosters: Roster[];
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
 }
 
 function openDeepLink(appUrl: string, fallback: string) {
@@ -39,8 +49,9 @@ export default function CoordinatorPage() {
     </div>
   );
 
-  const { org, coordinator } = data;
+  const { org, coordinator, rosters } = data;
   const color = org.primaryColor || "#2563eb";
+  const activeRosters = (rosters || []).filter((r) => r.entries.length > 0);
   const pageUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareText = `${coordinator.roleTitle || coordinator.name} — ${org.name}`;
 
@@ -104,8 +115,40 @@ export default function CoordinatorPage() {
           </div>
         </div>
 
+        {/* Roosters */}
+        {activeRosters.map((r) => (
+          <div key={r.id} className="bg-white rounded-2xl border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5" style={{ color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h2 className="font-semibold text-gray-900">{r.title}</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                    <th className="pb-2 pr-4 font-medium">Datum</th>
+                    <th className="pb-2 pr-4 font-medium">Naam</th>
+                    <th className="pb-2 font-medium">Taak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.entries.map((e) => (
+                    <tr key={e.id} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2.5 pr-4 text-gray-500 whitespace-nowrap">{formatDate(e.date) || "—"}</td>
+                      <td className="py-2.5 pr-4 font-medium text-gray-800">{e.name}</td>
+                      <td className="py-2.5 text-gray-500">{e.role || e.notes || ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+
         {/* Secties */}
-        {coordinator.pageSections.length === 0 ? (
+        {coordinator.pageSections.length === 0 && activeRosters.length === 0 ? (
           <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center">
             <p className="text-gray-400 text-sm">De coördinator heeft nog geen informatie toegevoegd.</p>
           </div>

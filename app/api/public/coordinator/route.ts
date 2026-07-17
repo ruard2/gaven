@@ -22,8 +22,22 @@ export async function GET(req: NextRequest) {
   });
   if (!coord) return NextResponse.json({ error: "Pagina niet gevonden" }, { status: 404 });
 
+  const rosters = await prisma.roster.findMany({
+    where: { coordinatorId: coord.id },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      title: true,
+      entries: {
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+        select: { id: true, name: true, date: true, role: true, notes: true },
+      },
+    },
+  });
+
   return NextResponse.json({
     org: { name: org.name, slug: org.slug, primaryColor: org.primaryColor, logoUrl: org.logoUrl },
     coordinator: coord,
+    rosters,
   });
 }
