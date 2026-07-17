@@ -55,6 +55,10 @@ export default function CoordinatorDashboard() {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [transferEmail, setTransferEmail] = useState("");
   const [transferName, setTransferName] = useState("");
+  const [settingsNewTitle, setSettingsNewTitle] = useState("");
+  const [settingsNewCategory, setSettingsNewCategory] = useState("Praktisch");
+  const [settingsShowNewForm, setSettingsShowNewForm] = useState(false);
+  const SETTING_CATEGORIES = ["Muziek & eredienst", "Praktisch", "Jeugd", "Bestuur", "Techniek", "Communicatie", "Pastoraat", "Overig"];
 
   // Uitnodiging
   const [showInvite, setShowInvite] = useState(false);
@@ -244,6 +248,13 @@ export default function CoordinatorDashboard() {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ add: assignmentSel.filter((id) => !prevAssigned.includes(id)), remove: prevAssigned.filter((id) => !assignmentSel.includes(id)) }),
     });
+    if (settingsShowNewForm && settingsNewTitle.trim()) {
+      await fetch("/api/coordinator/vacancies", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: settingsNewTitle.trim(), category: settingsNewCategory, shortDescription: "", contactPersonName: "", contactPersonEmail: "" }),
+      });
+      setSettingsNewTitle(""); setSettingsShowNewForm(false);
+    }
     const v = await fetch("/api/coordinator/vacancies").then((r) => r.json());
     setVacancies(Array.isArray(v) ? v : []);
     setShowSettings(false); setSaving(false);
@@ -639,8 +650,33 @@ export default function CoordinatorDashboard() {
                     )}
                   </div>
                 )}
+                {!settingsShowNewForm ? (
+                  <button type="button" onClick={() => setSettingsShowNewForm(true)}
+                    className="flex items-center justify-center gap-2 border border-dashed border-blue-300 text-blue-600 rounded-lg px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors w-full">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Eigen functie toevoegen
+                  </button>
+                ) : (
+                  <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-blue-700">Nieuwe functie</span>
+                      <button type="button" onClick={() => { setSettingsShowNewForm(false); setSettingsNewTitle(""); }}
+                        className="text-xs text-gray-400 hover:text-gray-600">Annuleren</button>
+                    </div>
+                    <input value={settingsNewTitle} onChange={(e) => setSettingsNewTitle(e.target.value)}
+                      placeholder="Naam van de functie"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                    <select value={settingsNewCategory} onChange={(e) => setSettingsNewCategory(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      {SETTING_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="flex gap-2 pt-2 border-t border-gray-100">
-                  <button onClick={saveAssignments} disabled={saving || loadingAssignments} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  <button onClick={saveAssignments} disabled={saving || loadingAssignments || (settingsShowNewForm && !settingsNewTitle.trim())}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                     {saving ? "Opslaan…" : "Opslaan"}
                   </button>
                   <button onClick={() => setShowSettings(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Annuleren</button>
