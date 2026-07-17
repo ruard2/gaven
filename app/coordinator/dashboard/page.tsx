@@ -12,10 +12,10 @@ interface Vacancy {
   applications: Application[]; memberships: Member[];
 }
 interface Coordinator { id: string; name: string; email: string; roleTitle: string | null; organization: { name: string; slug: string; primaryColor: string }; }
-interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
 interface RosterEntry { id: string; name: string; email?: string | null; date?: string | null; role?: string | null; notes?: string | null; }
 interface Roster { id: string; vacancyId?: string | null; title: string; reminderDays: number; entries: RosterEntry[]; }
-interface TeamSection { id: string; type: string; title: string; content: string | null; url: string | null; order: number; }
+interface DocumentMeta { id: string; filename: string; mimeType: string; size: number; }
+interface TeamSection { id: string; type: string; title: string; content: string | null; url: string | null; order: number; document?: DocumentMeta | null; }
 
 const RESPONSE_LABELS: Record<string, string> = {
   meedoen: "Wil meedoen", meekijken: "Wil meekijken", contact: "Wil contact", vraag: "Heeft een vraag",
@@ -49,10 +49,13 @@ export default function CoordinatorDashboard() {
 
   // Instellingen modal
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"coordinaties" | "overdragen">("coordinaties");
-  const [orgVacancies, setOrgVacancies] = useState<OrgVacancy[]>([]);
-  const [assignmentSel, setAssignmentSel] = useState<string[]>([]);
-  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"rol" | "gegevens" | "overdragen">("rol");
+  const [roleOptions, setRoleOptions] = useState<{ title: string; category: string }[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [roleCustom, setRoleCustom] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileErr, setProfileErr] = useState("");
   const [transferEmail, setTransferEmail] = useState("");
   const [transferName, setTransferName] = useState("");
 
@@ -74,6 +77,8 @@ export default function CoordinatorDashboard() {
   const [homepageLoading, setHomepageLoading] = useState(false);
   const [homepageRoleTitle, setHomepageRoleTitle] = useState("");
   const [homepageAddForm, setHomepageAddForm] = useState({ type: "text", title: "", content: "", url: "" });
+  const [homepageFile, setHomepageFile] = useState<File | null>(null);
+  const [homepageUploadErr, setHomepageUploadErr] = useState("");
   const [homepageAdding, setHomepageAdding] = useState(false);
   const [homepageEditId, setHomepageEditId] = useState<string | null>(null);
   const [homepageEditForm, setHomepageEditForm] = useState({ title: "", content: "", url: "" });
@@ -88,27 +93,38 @@ export default function CoordinatorDashboard() {
     setHomepageLoading(false);
   }
 
-  async function saveHomepageTitle() {
-    await fetch("/api/coordinator/homepage", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roleTitle: homepageRoleTitle }),
-    });
-    setHomepageData((d) => d ? { ...d, roleTitle: homepageRoleTitle || null } : d);
-    setCoord((c) => c ? { ...c, roleTitle: homepageRoleTitle || null } : c);
-    flash("Opgeslagen");
-  }
-
   async function addHomepageSection() {
     if (!homepageAddForm.title.trim()) return;
+    if (homepageAddForm.type === "file" && !homepageFile) {
+      setHomepageUploadErr("Kies eerst een bestand");
+      return;
+    }
     setHomepageAdding(true);
+    setHomepageUploadErr("");
+
+    let documentId: string | null = null;
+    if (homepageAddForm.type === "file" && homepageFile) {
+      const fd = new FormData();
+      fd.append("file", homepageFile);
+      const up = await fetch("/api/coordinator/homepage/upload", { method: "POST", body: fd });
+      if (!up.ok) {
+        const err = await up.json().catch(() => ({}));
+        setHomepageUploadErr(err.error || "Uploaden mislukt");
+        setHomepageAdding(false);
+        return;
+      }
+      documentId = (await up.json()).id;
+    }
+
     const r = await fetch("/api/coordinator/homepage", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(homepageAddForm),
+      body: JSON.stringify({ ...homepageAddForm, documentId }),
     });
     if (r.ok) {
       const sec = await r.json();
       setHomepageData((d) => d ? { ...d, pageSections: [...d.pageSections, sec] } : d);
       setHomepageAddForm({ type: "text", title: "", content: "", url: "" });
+      setHomepageFile(null);
     }
     setHomepageAdding(false);
   }
@@ -231,33 +247,48 @@ export default function CoordinatorDashboard() {
   }
 
   // ── Instellingen ──────────────────────────────────────────────────────
-  async function openSettings() {
-    setShowSettings(true); setSettingsTab("coordinaties"); setLoadingAssignments(true);
+  async function openSettings(tab: "rol" | "gegevens" | "overdragen" = "rol") {
+    setShowSettings(true);
+    setSettingsTab(tab);
+    setProfileErr("");
     setHomepageRoleTitle(coord?.roleTitle || "");
-    const data = await fetch("/api/coordinator/assignments").then((r) => r.json());
-    setOrgVacancies(Array.isArray(data) ? data : []);
-    setAssignmentSel((Array.isArray(data) ? data : []).filter((v: OrgVacancy) => v.assigned).map((v: OrgVacancy) => v.id));
-    setLoadingAssignments(false);
+    setProfileName(coord?.name || "");
+    setProfileEmail(coord?.email || "");
+    setLoadingRoles(true);
+    const data = await fetch("/api/coordinator/role-options").then((r) => r.json()).catch(() => []);
+    const opts = Array.isArray(data) ? data : [];
+    setRoleOptions(opts);
+    // Eigen invoer tonen als huidige rol niet in de lijst staat
+    const current = coord?.roleTitle || "";
+    setRoleCustom(!!current && !opts.some((o: { title: string }) => o.title === current));
+    setLoadingRoles(false);
   }
 
-  async function saveAssignments() {
+  async function saveRole() {
     setSaving(true);
-    if (homepageRoleTitle.trim() !== (coord?.roleTitle || "")) {
-      await fetch("/api/coordinator/homepage", {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roleTitle: homepageRoleTitle }),
-      });
-      setCoord((c) => c ? { ...c, roleTitle: homepageRoleTitle.trim() || null } : c);
-    }
-    const prevAssigned = orgVacancies.filter((v) => v.assigned).map((v) => v.id);
-    await fetch("/api/coordinator/assignments", {
+    const r = await fetch("/api/coordinator/homepage", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ add: assignmentSel.filter((id) => !prevAssigned.includes(id)), remove: prevAssigned.filter((id) => !assignmentSel.includes(id)) }),
+      body: JSON.stringify({ roleTitle: homepageRoleTitle }),
     });
-    const v = await fetch("/api/coordinator/vacancies").then((r) => r.json());
-    setVacancies(Array.isArray(v) ? v : []);
+    const d = r.ok ? await r.json() : null;
+    setCoord((c) => c ? { ...c, roleTitle: homepageRoleTitle.trim() || null } : c);
+    setHomepageData((prev) => prev ? { ...prev, roleTitle: homepageRoleTitle.trim() || null, ...(d?.pageUrl && { pageUrl: d.pageUrl }) } : prev);
     setShowSettings(false); setSaving(false);
-    flash("Coördinaties bijgewerkt");
+    flash("Coördinatierol bijgewerkt");
+  }
+
+  async function saveProfile() {
+    setSaving(true); setProfileErr("");
+    const r = await fetch("/api/coordinator/profile", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: profileName, email: profileEmail }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setSaving(false);
+    if (!r.ok) { setProfileErr(d.error || "Opslaan mislukt"); return; }
+    setCoord((c) => c ? { ...c, name: d.name, email: d.email } : c);
+    setShowSettings(false);
+    flash("Gegevens bijgewerkt");
   }
 
   async function handleTransfer() {
@@ -300,9 +331,6 @@ export default function CoordinatorDashboard() {
 
   const activeVacancies = vacancies.filter((v) => v.status === "active");
   const inactiveVacancies = vacancies.filter((v) => v.status !== "active");
-  const vacancyTitles = vacancies.map((v) => v.title);
-  const availableForAssignment = orgVacancies.filter((v) => !v.taken);
-  const takenByOther = orgVacancies.filter((v) => v.taken);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -314,10 +342,24 @@ export default function CoordinatorDashboard() {
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: coord?.organization.primaryColor }} />
               <span className="text-sm font-semibold text-gray-700">{coord?.organization.name}</span>
             </div>
-            <p className="text-xs text-gray-400 mt-0">Coördinator: {coord?.name}</p>
-            {coord?.roleTitle && (
-              <p className="text-xs text-gray-400">Coördinator van: {coord.roleTitle}</p>
-            )}
+            <button onClick={() => openSettings("gegevens")}
+              className="group flex items-center gap-1.5 text-left mt-0 rounded hover:bg-gray-50 -mx-1 px-1 py-0.5 transition-colors"
+              title="Instellingen — naam, e-mail, rol en overdracht">
+              <span className="text-xs text-gray-400 group-hover:text-gray-600">Coördinator: {coord?.name}</span>
+              <svg className="w-3 h-3 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button onClick={() => openSettings("rol")}
+              className="group flex items-center gap-1.5 text-left rounded hover:bg-gray-50 -mx-1 px-1 py-0.5 transition-colors"
+              title="Wijzig je coördinatierol">
+              <span className="text-xs text-gray-400 group-hover:text-gray-600">
+                Coördinator van: {coord?.roleTitle || <span className="text-blue-500 underline">rol instellen</span>}
+              </span>
+              <svg className="w-3 h-3 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowNewVacancy(true)} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
@@ -325,9 +367,6 @@ export default function CoordinatorDashboard() {
             </button>
             <button onClick={openHomepage} className="text-xs text-purple-700 hover:text-purple-900 px-3 py-1.5 border border-purple-200 bg-purple-50 rounded-lg">
               🏠 Homepage
-            </button>
-            <button onClick={openSettings} className="text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
-              Instellingen
             </button>
             <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">Uitloggen</button>
           </div>
@@ -357,11 +396,8 @@ export default function CoordinatorDashboard() {
           <h2 className="text-base font-bold text-gray-800 mb-4">Vacatures</h2>
           {vacancies.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
-              <p className="mb-4">Nog geen vacatures. Koppel bestaande via Instellingen of maak een nieuwe aan.</p>
-              <div className="flex gap-3 justify-center">
-                <button onClick={openSettings} className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:border-blue-400">Vacatures koppelen</button>
-                <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Nieuwe vacature</button>
-              </div>
+              <p className="mb-4">Nog geen vacatures. Maak er een aan om vrijwilligers te werven.</p>
+              <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Nieuwe vacature</button>
             </div>
           ) : (
             <div className="space-y-8">
@@ -602,61 +638,87 @@ export default function CoordinatorDashboard() {
         )}
       </main>
 
+
       {/* Instellingen modal */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="p-6 pb-0">
-              <h2 className="font-bold text-gray-900 mb-4">Instellingen</h2>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col overflow-hidden">
+            <div className="p-6 pb-0 flex-shrink-0">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="font-bold text-gray-900">Instellingen</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">{coord?.organization.name}</p>
+                </div>
+                <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-gray-600">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
               <div className="flex border-b border-gray-200 gap-4">
-                {(["coordinaties", "overdragen"] as const).map((tab) => (
-                  <button key={tab} onClick={() => setSettingsTab(tab)}
-                    className={`text-sm pb-2.5 font-medium border-b-2 transition-colors capitalize ${settingsTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
-                    {tab === "coordinaties" ? "Mijn vacatures" : "Rol overdragen"}
+                {([
+                  { key: "rol", label: "Coördinatierol" },
+                  { key: "gegevens", label: "Mijn gegevens" },
+                  { key: "overdragen", label: "Overdragen" },
+                ] as const).map(({ key, label }) => (
+                  <button key={key} onClick={() => setSettingsTab(key)}
+                    className={`text-sm pb-2.5 font-medium border-b-2 transition-colors ${settingsTab === key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {settingsTab === "coordinaties" && (
-              <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Jouw coördinatiefunctie</label>
-                  <input value={homepageRoleTitle} onChange={(e) => setHomepageRoleTitle(e.target.value)}
-                    placeholder="bijv. Schoonmakers, Geluid, Koffie…"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <p className="text-xs text-gray-400 mt-1">Wat coördineer jij? Verschijnt ook op je homepage.</p>
-                </div>
-                <p className="text-sm text-gray-500">Wervende vacatures (voor vrijwilligers):</p>
-                {loadingAssignments ? <p className="text-sm text-gray-400 text-center py-4">Laden…</p> : (
-                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-                    {availableForAssignment.map((v) => (
-                      <label key={v.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                        <input type="checkbox" checked={assignmentSel.includes(v.id)}
-                          onChange={() => setAssignmentSel((prev) => prev.includes(v.id) ? prev.filter((x) => x !== v.id) : [...prev, v.id])}
-                          className="rounded border-gray-300 text-blue-600" />
-                        <div>
-                          <span className="text-sm text-gray-800 block">{v.title}</span>
-                          <span className="text-xs text-gray-400">{v.category}</span>
+            {/* Tab: Coördinatierol */}
+            {settingsTab === "rol" && (
+              <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-3">
+                <p className="text-sm text-gray-500">Wat coördineer jij? Kies uit de lijst of voeg je eigen functie toe.</p>
+
+                {loadingRoles ? (
+                  <p className="text-sm text-gray-400 text-center py-6">Laden…</p>
+                ) : (
+                  <>
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                      {roleOptions.map((o) => (
+                        <label key={o.title} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer">
+                          <input type="radio" name="rol" checked={!roleCustom && homepageRoleTitle === o.title}
+                            onChange={() => { setRoleCustom(false); setHomepageRoleTitle(o.title); }}
+                            className="border-gray-300 text-blue-600 focus:ring-blue-500" />
+                          <div className="min-w-0">
+                            <span className="text-sm text-gray-800 block truncate">{o.title}</span>
+                            {o.category && <span className="text-xs text-gray-400">{o.category}</span>}
+                          </div>
+                        </label>
+                      ))}
+                      {roleOptions.length === 0 && (
+                        <p className="text-sm text-gray-400 p-4 text-center">Nog geen rollen bekend — voeg je eigen toe.</p>
+                      )}
+                    </div>
+
+                    {/* Eigen functie onderaan */}
+                    {!roleCustom ? (
+                      <button type="button" onClick={() => { setRoleCustom(true); setHomepageRoleTitle(""); }}
+                        className="flex items-center justify-center gap-2 border border-dashed border-blue-300 text-blue-600 rounded-lg px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Staat mijn functie er niet bij? Zelf toevoegen
+                      </button>
+                    ) : (
+                      <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-blue-700">Eigen functie</span>
+                          <button type="button" onClick={() => { setRoleCustom(false); setHomepageRoleTitle(coord?.roleTitle || ""); }}
+                            className="text-xs text-gray-400 hover:text-gray-600">Toch uit lijst kiezen</button>
                         </div>
-                      </label>
-                    ))}
-                    {takenByOther.map((v) => (
-                      <div key={v.id} className="flex items-center gap-3 px-4 py-3 opacity-40">
-                        <input type="checkbox" disabled checked={false} className="rounded border-gray-300" />
-                        <div>
-                          <span className="text-sm text-gray-500 block">{v.title}</span>
-                          <span className="text-xs text-gray-400">{v.category} · andere coördinator</span>
-                        </div>
+                        <input autoFocus value={homepageRoleTitle} onChange={(e) => setHomepageRoleTitle(e.target.value)}
+                          placeholder="bijv. Schoonmakers"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
-                    ))}
-                    {availableForAssignment.length === 0 && takenByOther.length === 0 && (
-                      <p className="text-sm text-gray-400 p-4 text-center">Geen vacatures in deze organisatie.</p>
                     )}
-                  </div>
+                  </>
                 )}
-                <div className="flex gap-2 pt-2 border-t border-gray-100">
-                  <button onClick={saveAssignments} disabled={saving || loadingAssignments}
+
+                <div className="flex gap-2 pt-2 border-t border-gray-100 mt-1">
+                  <button onClick={saveRole} disabled={saving || loadingRoles || !homepageRoleTitle.trim()}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                     {saving ? "Opslaan…" : "Opslaan"}
                   </button>
@@ -665,23 +727,48 @@ export default function CoordinatorDashboard() {
               </div>
             )}
 
+            {/* Tab: Mijn gegevens */}
+            {settingsTab === "gegevens" && (
+              <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Naam</label>
+                  <input value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder="Voornaam Achternaam"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">E-mailadres</label>
+                  <input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} placeholder="naam@kerk.nl"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <p className="text-xs text-gray-400 mt-1">Hiermee log je in. Na wijzigen gebruik je het nieuwe adres.</p>
+                </div>
+                {profileErr && <p className="text-sm text-red-600">{profileErr}</p>}
+                <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <button onClick={saveProfile} disabled={saving || !profileName.trim() || !profileEmail.trim()}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {saving ? "Opslaan…" : "Opslaan"}
+                  </button>
+                  <button onClick={() => setShowSettings(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Annuleren</button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Overdragen */}
             {settingsTab === "overdragen" && (
-              <div className="p-6 pt-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-4">
                 <p className="text-sm text-gray-500">Draag jouw rol over aan iemand anders. Die persoon ontvangt een uitnodigingslink.</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Naam nieuwe coördinator</label>
-                    <input value={transferName} onChange={(e) => setTransferName(e.target.value)} placeholder="Voornaam Achternaam"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">E-mail *</label>
-                    <input type="email" value={transferEmail} onChange={(e) => setTransferEmail(e.target.value)} placeholder="naam@kerk.nl"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Naam nieuwe coördinator</label>
+                  <input value={transferName} onChange={(e) => setTransferName(e.target.value)} placeholder="Voornaam Achternaam"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">E-mail *</label>
+                  <input type="email" value={transferEmail} onChange={(e) => setTransferEmail(e.target.value)} placeholder="naam@kerk.nl"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex gap-2 pt-2 border-t border-gray-100">
-                  <button onClick={handleTransfer} disabled={saving || !transferEmail.trim()} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  <button onClick={handleTransfer} disabled={saving || !transferEmail.trim()}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                     {saving ? "Versturen…" : "Overdragen"}
                   </button>
                   <button onClick={() => setShowSettings(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Annuleren</button>
@@ -710,16 +797,18 @@ export default function CoordinatorDashboard() {
               <div className="flex-1 flex items-center justify-center p-8"><p className="text-gray-400 text-sm">Laden…</p></div>
             ) : homepageData && (
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Jouw rol */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Jouw rol / titel</label>
-                  <p className="text-xs text-gray-400 mb-2">Dit verschijnt als koptitel op jouw homepage (bijv. "Geluidscoördinator").</p>
-                  <div className="flex gap-2">
-                    <input value={homepageRoleTitle} onChange={(e) => setHomepageRoleTitle(e.target.value)}
-                      placeholder="bijv. Geluidscoördinator"
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                    <button onClick={saveHomepageTitle} className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700">Opslaan</button>
+                {/* Jouw rol (alleen tonen — wijzigen via Instellingen) */}
+                <div className="flex items-center justify-between gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-400">Coördinatierol</p>
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {coord?.roleTitle || <span className="text-gray-400 italic">nog niet ingesteld</span>}
+                    </p>
                   </div>
+                  <button onClick={() => { setShowHomepage(false); openSettings("rol"); }}
+                    className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded-lg flex-shrink-0">
+                    Wijzigen
+                  </button>
                 </div>
 
                 {/* Paginalink */}
@@ -746,7 +835,9 @@ export default function CoordinatorDashboard() {
                             <div className="space-y-2">
                               <input value={homepageEditForm.title} onChange={(e) => setHomepageEditForm((f) => ({ ...f, title: e.target.value }))}
                                 placeholder="Titel" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
-                              {s.type === "link" ? (
+                              {s.type === "file" ? (
+                                <p className="text-xs text-gray-400">📎 {s.document?.filename} — verwijder de sectie om een ander bestand te plaatsen.</p>
+                              ) : s.type === "link" ? (
                                 <>
                                   <input value={homepageEditForm.url} onChange={(e) => setHomepageEditForm((f) => ({ ...f, url: e.target.value }))}
                                     placeholder="URL" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
@@ -766,7 +857,11 @@ export default function CoordinatorDashboard() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-gray-800">{s.title}</p>
-                                <p className="text-xs text-gray-400">{s.type === "link" ? `🔗 ${s.url}` : s.content?.substring(0, 60)}</p>
+                                <p className="text-xs text-gray-400 truncate">
+                                  {s.type === "file" && s.document
+                                    ? `📎 ${s.document.filename}`
+                                    : s.type === "link" ? `🔗 ${s.url}` : s.content?.substring(0, 60)}
+                                </p>
                               </div>
                               <div className="flex gap-1 flex-shrink-0">
                                 <button onClick={() => { setHomepageEditId(s.id); setHomepageEditForm({ title: s.title, content: s.content || "", url: s.url || "" }); }}
@@ -785,22 +880,41 @@ export default function CoordinatorDashboard() {
                   <div className="border border-dashed border-purple-200 bg-purple-50 rounded-lg p-4 space-y-2">
                     <p className="text-xs font-semibold text-purple-700">Sectie toevoegen</p>
                     <div className="flex gap-2">
-                      <button onClick={() => setHomepageAddForm((f) => ({ ...f, type: "text" }))}
-                        className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${homepageAddForm.type === "text" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
-                        Tekst
-                      </button>
-                      <button onClick={() => setHomepageAddForm((f) => ({ ...f, type: "link" }))}
-                        className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${homepageAddForm.type === "link" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
-                        Link / Document
-                      </button>
+                      {([
+                        { key: "text", label: "Tekst" },
+                        { key: "file", label: "📎 Bestand" },
+                        { key: "link", label: "Link" },
+                      ] as const).map(({ key, label }) => (
+                        <button key={key} onClick={() => { setHomepageAddForm((f) => ({ ...f, type: key })); setHomepageUploadErr(""); }}
+                          className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${homepageAddForm.type === key ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     <input value={homepageAddForm.title} onChange={(e) => setHomepageAddForm((f) => ({ ...f, title: e.target.value }))}
-                      placeholder="Titel (bijv. 'Planning' of 'Handleiding')"
+                      placeholder="Titel (bijv. 'Schoonmaakrooster' of 'Handleiding')"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
-                    {homepageAddForm.type === "link" ? (
+                    {homepageAddForm.type === "file" ? (
+                      <>
+                        <label className="block border border-dashed border-purple-300 rounded-lg px-3 py-4 text-center cursor-pointer hover:bg-purple-100/50 bg-white transition-colors">
+                          <input type="file" className="hidden"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp"
+                            onChange={(e) => { setHomepageFile(e.target.files?.[0] || null); setHomepageUploadErr(""); }} />
+                          {homepageFile ? (
+                            <span className="text-sm text-purple-700 font-medium">📎 {homepageFile.name}</span>
+                          ) : (
+                            <>
+                              <span className="text-sm text-purple-600 font-medium block">Kies een bestand</span>
+                              <span className="text-xs text-gray-400">Word, Excel, PDF, PowerPoint, afbeelding · max 10 MB</span>
+                            </>
+                          )}
+                        </label>
+                        {homepageUploadErr && <p className="text-xs text-red-600">{homepageUploadErr}</p>}
+                      </>
+                    ) : homepageAddForm.type === "link" ? (
                       <>
                         <input value={homepageAddForm.url} onChange={(e) => setHomepageAddForm((f) => ({ ...f, url: e.target.value }))}
-                          placeholder="URL (bijv. link naar document)"
+                          placeholder="URL (bijv. https://...)"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
                         <input value={homepageAddForm.content} onChange={(e) => setHomepageAddForm((f) => ({ ...f, content: e.target.value }))}
                           placeholder="Knoptekst (optioneel)"
@@ -813,7 +927,7 @@ export default function CoordinatorDashboard() {
                     )}
                     <button onClick={addHomepageSection} disabled={homepageAdding || !homepageAddForm.title.trim()}
                       className="w-full bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
-                      {homepageAdding ? "Toevoegen…" : "Toevoegen"}
+                      {homepageAdding ? (homepageAddForm.type === "file" ? "Uploaden…" : "Toevoegen…") : "Toevoegen"}
                     </button>
                   </div>
                 </div>

@@ -56,6 +56,7 @@ model Coordinator {
   rosters         Roster[]
   coCoordinating  CoCoordinator[]
   pageSections    CoordinatorSection[]
+  documents       CoordinatorDocument[]
 }
 
 model Roster {
@@ -144,8 +145,22 @@ model CoordinatorSection {
   title         String
   content       String?
   url           String?
+  documentId    String?
+  document      CoordinatorDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
   order         Int         @default(0)
   createdAt     DateTime    @default(now())
+}
+
+model CoordinatorDocument {
+  id            String      @id @default(cuid())
+  coordinatorId String
+  coordinator   Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+  filename      String
+  mimeType      String
+  size          Int
+  data          Bytes
+  createdAt     DateTime    @default(now())
+  sections      CoordinatorSection[]
 }
 
 model CoCoordinator {

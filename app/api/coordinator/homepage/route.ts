@@ -3,8 +3,8 @@ import { requireCoordinator } from "@/lib/coordinatorAuth";
 import { prisma } from "@/lib/db";
 import { generateSlug } from "@/lib/slug";
 
-async function ensurePageSlug(coordId: string, name: string, orgId: string): Promise<string> {
-  const base = generateSlug(name) || "coordinator";
+async function ensurePageSlug(coordId: string, label: string, orgId: string): Promise<string> {
+  const base = generateSlug(label) || "coordinator";
   const siblings = await prisma.coordinator.findMany({
     where: { organizationId: orgId, id: { not: coordId } },
     select: { pageSlug: true },
@@ -30,13 +30,17 @@ export async function GET() {
       pageSlug: true,
       organizationId: true,
       organization: { select: { slug: true, name: true, primaryColor: true, logoUrl: true } },
-      pageSections: { orderBy: { order: "asc" } },
+      pageSections: {
+        orderBy: { order: "asc" },
+        include: { document: { select: { id: true, filename: true, mimeType: true, size: true } } },
+      },
     },
   });
   if (!full) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Slug volgt de coordinatiefunctie (valt terug op naam als functie nog leeg is)
   let pageSlug = full.pageSlug;
-  if (!pageSlug) pageSlug = await ensurePageSlug(coord.id, coord.name, coord.organizationId);
+  if (!pageSlug) pageSlug = await ensurePageSlug(coord.id, full.roleTitle || coord.name, coord.organizationId);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://www.gavenmatch.nl";
   const pageUrl = `${appUrl}/${full.organization.slug}/p/${pageSlug}`;
@@ -49,19 +53,43 @@ export async function PATCH(req: NextRequest) {
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { roleTitle } = await req.json();
+  const trimmed = roleTitle?.trim() || null;
+
   await prisma.coordinator.update({
     where: { id: coord.id },
-    data: { roleTitle: roleTitle?.trim() || null },
+    data: { roleTitle: trimmed },
   });
-  return NextResponse.json({ ok: true });
+
+  // Paginalink volgt de functienaam
+  const pageSlug = await ensurePageSlug(coord.id, trimmed || coord.name, coord.organizationId);
+  const org = await prisma.organization.findUnique({
+    where: { id: coord.organizationId },
+    select: { slug: true },
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://www.gavenmatch.nl";
+
+  return NextResponse.json({
+    ok: true,
+    pageSlug,
+    pageUrl: `${appUrl}/${org?.slug}/p/${pageSlug}`,
+  });
 }
 
 export async function POST(req: NextRequest) {
   const coord = await requireCoordinator();
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { type, title, content, url } = await req.json();
+  const { type, title, content, url, documentId } = await req.json();
   if (!title?.trim()) return NextResponse.json({ error: "Titel verplicht" }, { status: 400 });
+
+  // Documenten moeten van deze coordinator zijn
+  if (documentId) {
+    const owned = await prisma.coordinatorDocument.findFirst({
+      where: { id: documentId, coordinatorId: coord.id },
+      select: { id: true },
+    });
+    if (!owned) return NextResponse.json({ error: "Document niet gevonden" }, { status: 404 });
+  }
 
   const last = await prisma.coordinatorSection.findFirst({
     where: { coordinatorId: coord.id },
@@ -76,8 +104,10 @@ export async function POST(req: NextRequest) {
       title: title.trim(),
       content: content?.trim() || null,
       url: url?.trim() || null,
+      documentId: documentId || null,
       order: (last?.order ?? -1) + 1,
     },
+    include: { document: { select: { id: true, filename: true, mimeType: true, size: true } } },
   });
   return NextResponse.json(section, { status: 201 });
 }

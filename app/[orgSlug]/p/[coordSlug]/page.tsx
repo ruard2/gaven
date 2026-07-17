@@ -2,7 +2,23 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-interface Section { id: string; type: string; title: string; content: string | null; url: string | null; }
+interface DocumentMeta { id: string; filename: string; mimeType: string; size: number; }
+interface Section { id: string; type: string; title: string; content: string | null; url: string | null; document: DocumentMeta | null; }
+
+function fileIcon(mime: string): string {
+  if (mime.includes("pdf")) return "📕";
+  if (mime.includes("word") || mime.includes("wordprocessing")) return "📘";
+  if (mime.includes("sheet") || mime.includes("excel") || mime.includes("csv")) return "📗";
+  if (mime.includes("presentation") || mime.includes("powerpoint")) return "📙";
+  if (mime.startsWith("image/")) return "🖼️";
+  return "📄";
+}
+
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 interface RosterEntry { id: string; name: string; date: string | null; role: string | null; notes: string | null; }
 interface Roster { id: string; title: string; entries: RosterEntry[]; }
 interface PageData {
@@ -156,7 +172,19 @@ export default function CoordinatorPage() {
           coordinator.pageSections.map((s) => (
             <div key={s.id} className="bg-white rounded-2xl border border-gray-200 p-6">
               <h2 className="font-semibold text-gray-900 mb-3">{s.title}</h2>
-              {s.type === "link" && s.url ? (
+              {s.type === "file" && s.document ? (
+                <a href={`/api/public/document/${s.document.id}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors group">
+                  <span className="text-2xl flex-shrink-0">{fileIcon(s.document.mimeType)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">{s.document.filename}</p>
+                    <p className="text-xs text-gray-400">{fileSize(s.document.size)}</p>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </a>
+              ) : s.type === "link" && s.url ? (
                 <a href={s.url} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white"
                   style={{ background: color }}>

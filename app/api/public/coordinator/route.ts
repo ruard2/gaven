@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
       email: true,
       roleTitle: true,
       pageSlug: true,
-      pageSections: { orderBy: { order: "asc" } },
+      pageSections: {
+        orderBy: { order: "asc" },
+        include: { document: { select: { id: true, filename: true, mimeType: true, size: true } } },
+      },
     },
   });
   if (!coord) return NextResponse.json({ error: "Pagina niet gevonden" }, { status: 404 });
