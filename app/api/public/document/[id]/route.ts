@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const forceDownload = req.nextUrl.searchParams.get("download") === "1";
 
   const doc = await prisma.coordinatorDocument.findUnique({
     where: { id },
@@ -16,10 +17,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const body = new Uint8Array(doc.data);
 
+  const disposition = forceDownload ? "attachment" : "inline";
+
   return new NextResponse(body, {
     headers: {
       "Content-Type": doc.mimeType,
-      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(doc.filename)}`,
+      "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(doc.filename)}`,
       "Content-Length": String(body.length),
       "Cache-Control": "public, max-age=300",
     },

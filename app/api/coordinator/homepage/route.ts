@@ -38,9 +38,16 @@ export async function GET() {
   });
   if (!full) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Slug volgt de coordinatiefunctie (valt terug op naam als functie nog leeg is)
+  // Slug volgt de coordinatiefunctie (valt terug op naam als functie nog leeg is).
+  // Ook herstellen als de slug nog van een oude rol/naam is.
+  const label = full.roleTitle || coord.name;
+  const expectedBase = generateSlug(label) || "coordinator";
+  const matchesRole = !!full.pageSlug && new RegExp(`^${expectedBase}(-\\d+)?$`).test(full.pageSlug);
+
   let pageSlug = full.pageSlug;
-  if (!pageSlug) pageSlug = await ensurePageSlug(coord.id, full.roleTitle || coord.name, coord.organizationId);
+  if (!pageSlug || !matchesRole) {
+    pageSlug = await ensurePageSlug(coord.id, label, coord.organizationId);
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://www.gavenmatch.nl";
   const pageUrl = `${appUrl}/${full.organization.slug}/p/${pageSlug}`;
