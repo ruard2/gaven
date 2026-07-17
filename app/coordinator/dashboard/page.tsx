@@ -71,7 +71,7 @@ export default function CoordinatorDashboard() {
   const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
   const [customCategory, setCustomCategory] = useState("");
 
-  // Teampagina
+  // Teampagina (per vacature)
   const [teamPageVacancyId, setTeamPageVacancyId] = useState<string | null>(null);
   const [teamPageData, setTeamPageData] = useState<{ sections: TeamSection[]; slug: string; teamUrl: string } | null>(null);
   const [teamPageLoading, setTeamPageLoading] = useState(false);
@@ -81,7 +81,67 @@ export default function CoordinatorDashboard() {
   const [editingSec, setEditingSec] = useState<string | null>(null);
   const [editSecForm, setEditSecForm] = useState({ title: "", content: "", url: "" });
 
+  // Coördinator homepage
+  interface HomepageData { roleTitle: string | null; pageUrl: string; pageSections: TeamSection[] }
+  const [showHomepage, setShowHomepage] = useState(false);
+  const [homepageData, setHomepageData] = useState<HomepageData | null>(null);
+  const [homepageLoading, setHomepageLoading] = useState(false);
+  const [homepageRoleTitle, setHomepageRoleTitle] = useState("");
+  const [homepageAddForm, setHomepageAddForm] = useState({ type: "text", title: "", content: "", url: "" });
+  const [homepageAdding, setHomepageAdding] = useState(false);
+  const [homepageEditId, setHomepageEditId] = useState<string | null>(null);
+  const [homepageEditForm, setHomepageEditForm] = useState({ title: "", content: "", url: "" });
+
   function flash(m: string) { setMsg(m); setTimeout(() => setMsg(""), 4000); }
+
+  async function openHomepage() {
+    setShowHomepage(true); setHomepageLoading(true);
+    const r = await fetch("/api/coordinator/homepage");
+    if (r.ok) {
+      const d = await r.json();
+      setHomepageData(d);
+      setHomepageRoleTitle(d.roleTitle || "");
+    }
+    setHomepageLoading(false);
+  }
+
+  async function saveHomepageTitle() {
+    await fetch("/api/coordinator/homepage", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleTitle: homepageRoleTitle }),
+    });
+    setHomepageData((d) => d ? { ...d, roleTitle: homepageRoleTitle || null } : d);
+    flash("Opgeslagen");
+  }
+
+  async function addHomepageSection() {
+    if (!homepageAddForm.title.trim()) return;
+    setHomepageAdding(true);
+    const r = await fetch("/api/coordinator/homepage", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(homepageAddForm),
+    });
+    if (r.ok) {
+      const sec = await r.json();
+      setHomepageData((d) => d ? { ...d, pageSections: [...d.pageSections, sec] } : d);
+      setHomepageAddForm({ type: "text", title: "", content: "", url: "" });
+    }
+    setHomepageAdding(false);
+  }
+
+  async function deleteHomepageSection(sectionId: string) {
+    await fetch(`/api/coordinator/homepage?sectionId=${sectionId}`, { method: "DELETE" });
+    setHomepageData((d) => d ? { ...d, pageSections: d.pageSections.filter((s) => s.id !== sectionId) } : d);
+  }
+
+  async function saveHomepageSection(sectionId: string) {
+    await fetch("/api/coordinator/homepage", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sectionId, type: homepageData?.pageSections.find((s) => s.id === sectionId)?.type, ...homepageEditForm }),
+    });
+    setHomepageData((d) => d ? { ...d, pageSections: d.pageSections.map((s) => s.id === sectionId ? { ...s, ...homepageEditForm } : s) } : d);
+    setHomepageEditId(null);
+  }
 
   async function openTeamPage(vacancyId: string) {
     setTeamPageVacancyId(vacancyId);
@@ -323,6 +383,9 @@ export default function CoordinatorDashboard() {
           <div className="flex items-center gap-2">
             <button onClick={() => setShowNewVacancy(true)} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
               + Nieuwe vacature
+            </button>
+            <button onClick={openHomepage} className="text-xs text-purple-700 hover:text-purple-900 px-3 py-1.5 border border-purple-200 bg-purple-50 rounded-lg">
+              🏠 Homepage
             </button>
             <button onClick={openSettings} className="text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
               Instellingen
@@ -650,32 +713,8 @@ export default function CoordinatorDashboard() {
                     )}
                   </div>
                 )}
-                {!settingsShowNewForm ? (
-                  <button type="button" onClick={() => setSettingsShowNewForm(true)}
-                    className="flex items-center justify-center gap-2 border border-dashed border-blue-300 text-blue-600 rounded-lg px-3 py-2.5 text-sm hover:bg-blue-50 transition-colors w-full">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Eigen functie toevoegen
-                  </button>
-                ) : (
-                  <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-blue-700">Nieuwe functie</span>
-                      <button type="button" onClick={() => { setSettingsShowNewForm(false); setSettingsNewTitle(""); }}
-                        className="text-xs text-gray-400 hover:text-gray-600">Annuleren</button>
-                    </div>
-                    <input value={settingsNewTitle} onChange={(e) => setSettingsNewTitle(e.target.value)}
-                      placeholder="Naam van de functie"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                    <select value={settingsNewCategory} onChange={(e) => setSettingsNewCategory(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                      {SETTING_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-                )}
                 <div className="flex gap-2 pt-2 border-t border-gray-100">
-                  <button onClick={saveAssignments} disabled={saving || loadingAssignments || (settingsShowNewForm && !settingsNewTitle.trim())}
+                  <button onClick={saveAssignments} disabled={saving || loadingAssignments}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                     {saving ? "Opslaan…" : "Opslaan"}
                   </button>
@@ -704,6 +743,137 @@ export default function CoordinatorDashboard() {
                     {saving ? "Versturen…" : "Overdragen"}
                   </button>
                   <button onClick={() => setShowSettings(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Annuleren</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Homepage modal */}
+      {showHomepage && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setShowHomepage(false); }}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 pb-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-gray-900">Beheer homepage</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Jouw persoonlijke coördinatiepagina voor vrijwilligers</p>
+              </div>
+              <button onClick={() => setShowHomepage(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {homepageLoading ? (
+              <div className="flex-1 flex items-center justify-center p-8"><p className="text-gray-400 text-sm">Laden…</p></div>
+            ) : homepageData && (
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Jouw rol */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Jouw rol / titel</label>
+                  <p className="text-xs text-gray-400 mb-2">Dit verschijnt als koptitel op jouw homepage (bijv. "Geluidscoördinator").</p>
+                  <div className="flex gap-2">
+                    <input value={homepageRoleTitle} onChange={(e) => setHomepageRoleTitle(e.target.value)}
+                      placeholder="bijv. Geluidscoördinator"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    <button onClick={saveHomepageTitle} className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700">Opslaan</button>
+                  </div>
+                </div>
+
+                {/* Paginalink */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Jouw paginalink</label>
+                  <div className="flex gap-2 items-center">
+                    <input readOnly value={homepageData.pageUrl} className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50" />
+                    <button onClick={() => { navigator.clipboard?.writeText(homepageData.pageUrl); flash("Link gekopieerd"); }}
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300">Kopieer</button>
+                  </div>
+                  <a href={homepageData.pageUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-600 hover:underline mt-1 inline-block">Bekijk pagina →</a>
+                </div>
+
+                {/* Secties */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Inhoud op jouw homepage</p>
+                  {homepageData.pageSections.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-lg">Nog geen secties. Voeg hieronder toe.</p>
+                  ) : (
+                    <div className="space-y-2 mb-4">
+                      {homepageData.pageSections.map((s) => (
+                        <div key={s.id} className="border border-gray-200 rounded-lg p-3">
+                          {homepageEditId === s.id ? (
+                            <div className="space-y-2">
+                              <input value={homepageEditForm.title} onChange={(e) => setHomepageEditForm((f) => ({ ...f, title: e.target.value }))}
+                                placeholder="Titel" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+                              {s.type === "link" ? (
+                                <>
+                                  <input value={homepageEditForm.url} onChange={(e) => setHomepageEditForm((f) => ({ ...f, url: e.target.value }))}
+                                    placeholder="URL" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+                                  <input value={homepageEditForm.content} onChange={(e) => setHomepageEditForm((f) => ({ ...f, content: e.target.value }))}
+                                    placeholder="Knoptekst (optioneel)" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+                                </>
+                              ) : (
+                                <textarea value={homepageEditForm.content} onChange={(e) => setHomepageEditForm((f) => ({ ...f, content: e.target.value }))}
+                                  placeholder="Tekst" rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm resize-none" />
+                              )}
+                              <div className="flex gap-2">
+                                <button onClick={() => saveHomepageSection(s.id)} className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg">Opslaan</button>
+                                <button onClick={() => setHomepageEditId(null)} className="px-3 py-1.5 border border-gray-200 text-xs rounded-lg">Annuleren</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-800">{s.title}</p>
+                                <p className="text-xs text-gray-400">{s.type === "link" ? `🔗 ${s.url}` : s.content?.substring(0, 60)}</p>
+                              </div>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <button onClick={() => { setHomepageEditId(s.id); setHomepageEditForm({ title: s.title, content: s.content || "", url: s.url || "" }); }}
+                                  className="text-xs text-blue-600 px-2 py-1 hover:bg-blue-50 rounded">Bewerken</button>
+                                <button onClick={() => deleteHomepageSection(s.id)}
+                                  className="text-xs text-red-500 px-2 py-1 hover:bg-red-50 rounded">Verwijder</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Toevoegen */}
+                  <div className="border border-dashed border-purple-200 bg-purple-50 rounded-lg p-4 space-y-2">
+                    <p className="text-xs font-semibold text-purple-700">Sectie toevoegen</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setHomepageAddForm((f) => ({ ...f, type: "text" }))}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${homepageAddForm.type === "text" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
+                        Tekst
+                      </button>
+                      <button onClick={() => setHomepageAddForm((f) => ({ ...f, type: "link" }))}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border font-medium transition-colors ${homepageAddForm.type === "link" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
+                        Link / Document
+                      </button>
+                    </div>
+                    <input value={homepageAddForm.title} onChange={(e) => setHomepageAddForm((f) => ({ ...f, title: e.target.value }))}
+                      placeholder="Titel (bijv. 'Planning' of 'Handleiding')"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                    {homepageAddForm.type === "link" ? (
+                      <>
+                        <input value={homepageAddForm.url} onChange={(e) => setHomepageAddForm((f) => ({ ...f, url: e.target.value }))}
+                          placeholder="URL (bijv. link naar document)"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                        <input value={homepageAddForm.content} onChange={(e) => setHomepageAddForm((f) => ({ ...f, content: e.target.value }))}
+                          placeholder="Knoptekst (optioneel)"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                      </>
+                    ) : (
+                      <textarea value={homepageAddForm.content} onChange={(e) => setHomepageAddForm((f) => ({ ...f, content: e.target.value }))}
+                        placeholder="Tekst / omschrijving"
+                        rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white resize-none" />
+                    )}
+                    <button onClick={addHomepageSection} disabled={homepageAdding || !homepageAddForm.title.trim()}
+                      className="w-full bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50">
+                      {homepageAdding ? "Toevoegen…" : "Toevoegen"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

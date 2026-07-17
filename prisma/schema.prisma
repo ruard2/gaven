@@ -47,12 +47,15 @@ model Coordinator {
   inviteToken     String?  @unique
   inviteExpiresAt DateTime?
   status          String   @default("invited")
+  roleTitle       String?
+  pageSlug        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   vacancies       Vacancy[]
   resetTokens     CoordinatorResetToken[]
   rosters         Roster[]
   coCoordinating  CoCoordinator[]
+  pageSections    CoordinatorSection[]
 }
 
 model Roster {
@@ -131,6 +134,18 @@ model VacancyPageSection {
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CoordinatorSection {
+  id            String      @id @default(cuid())
+  coordinatorId String
+  coordinator   Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+  type          String      @default("text")
+  title         String
+  content       String?
+  url           String?
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
 }
 
 model CoCoordinator {
