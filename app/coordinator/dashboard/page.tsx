@@ -293,6 +293,7 @@ export default function CoordinatorDashboard() {
   // ── Instellingen ──────────────────────────────────────────────────────
   async function openSettings() {
     setShowSettings(true); setSettingsTab("coordinaties"); setLoadingAssignments(true);
+    setHomepageRoleTitle(coord?.roleTitle || "");
     const data = await fetch("/api/coordinator/assignments").then((r) => r.json());
     setOrgVacancies(Array.isArray(data) ? data : []);
     setAssignmentSel((Array.isArray(data) ? data : []).filter((v: OrgVacancy) => v.assigned).map((v: OrgVacancy) => v.id));
@@ -301,6 +302,13 @@ export default function CoordinatorDashboard() {
 
   async function saveAssignments() {
     setSaving(true);
+    if (homepageRoleTitle.trim() !== (coord?.roleTitle || "")) {
+      await fetch("/api/coordinator/homepage", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleTitle: homepageRoleTitle }),
+      });
+      setCoord((c) => c ? { ...c, roleTitle: homepageRoleTitle.trim() || null } : c);
+    }
     const prevAssigned = orgVacancies.filter((v) => v.assigned).map((v) => v.id);
     await fetch("/api/coordinator/assignments", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -683,7 +691,14 @@ export default function CoordinatorDashboard() {
 
             {settingsTab === "coordinaties" && (
               <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-4">
-                <p className="text-sm text-gray-500">Vink aan welke wervende vacatures jij beheert (voor het aantrekken van vrijwilligers).</p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Jouw coördinatiefunctie</label>
+                  <input value={homepageRoleTitle} onChange={(e) => setHomepageRoleTitle(e.target.value)}
+                    placeholder="bijv. Schoonmakers, Geluid, Koffie…"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <p className="text-xs text-gray-400 mt-1">Wat coördineer jij? Verschijnt ook op je homepage.</p>
+                </div>
+                <p className="text-sm text-gray-500">Wervende vacatures (voor vrijwilligers):</p>
                 {loadingAssignments ? <p className="text-sm text-gray-400 text-center py-4">Laden…</p> : (
                   <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                     {availableForAssignment.map((v) => (
