@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { title, category, shortDescription, whyValuable, concreteTasks, firstStep } = await req.json();
-  if (!title?.trim() || !category?.trim() || !shortDescription?.trim()) {
-    return NextResponse.json({ error: "Naam, categorie en korte omschrijving zijn verplicht" }, { status: 400 });
+  if (!title?.trim() || !category?.trim()) {
+    return NextResponse.json({ error: "Naam en categorie zijn verplicht" }, { status: 400 });
   }
 
   const vacancy = await prisma.vacancy.create({
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       coordinatorId: coord.id,
       title: title.trim(),
       category: category.trim(),
-      shortDescription: shortDescription.trim(),
+      shortDescription: shortDescription?.trim() || "",
       whyValuable: whyValuable?.trim() || null,
       concreteTasks: concreteTasks?.trim() || null,
       firstStep: firstStep?.trim() || null,
