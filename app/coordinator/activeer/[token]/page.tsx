@@ -118,10 +118,20 @@ export default function ActivatePage() {
                     </div>
                   </label>
                 ))}
+                {takenVacancies.map((v) => (
+                  <label key={v.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-amber-50 cursor-pointer">
+                    <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleVacancy(v.id)}
+                      className="rounded border-gray-300 text-amber-500 focus:ring-amber-400" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-gray-700 block truncate">{v.title}</span>
+                      <span className="text-xs text-amber-500">Al gekoppeld — aanvraag gaat naar huidige coördinator</span>
+                    </div>
+                  </label>
+                ))}
               </div>
-              {takenVacancies.length > 0 && (
-                <p className="text-xs text-gray-400 mt-1">
-                  {takenVacancies.length} functie{takenVacancies.length > 1 ? "s zijn" : " is"} al aan een andere coördinator gekoppeld.
+              {takenVacancies.length > 0 && selectedIds.some((id) => takenVacancies.find((v) => v.id === id)) && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2">
+                  De huidige coördinator ontvangt een e-mail om jouw deelname te bevestigen.
                 </p>
               )}
             </div>

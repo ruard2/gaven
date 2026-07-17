@@ -52,6 +52,7 @@ model Coordinator {
   vacancies       Vacancy[]
   resetTokens     CoordinatorResetToken[]
   rosters         Roster[]
+  coCoordinating  CoCoordinator[]
 }
 
 model Roster {
@@ -98,6 +99,7 @@ model Vacancy {
   coordinatorId      String?
   coordinator        Coordinator? @relation(fields: [coordinatorId], references: [id])
   title              String
+  slug               String?
   category           String
   shortDescription   String
   longDescription    String?
@@ -114,6 +116,34 @@ model Vacancy {
   proposals          VacancyProposal[]
   memberships        VacancyMembership[]
   rosters            Roster[]
+  pageSections       VacancyPageSection[]
+  coCoordinators     CoCoordinator[]
+}
+
+model VacancyPageSection {
+  id        String   @id @default(cuid())
+  vacancyId String
+  vacancy   Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  type      String   @default("text")
+  title     String
+  content   String?
+  url       String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CoCoordinator {
+  id            String      @id @default(cuid())
+  vacancyId     String
+  vacancy       Vacancy     @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  coordinatorId String
+  coordinator   Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
+  confirmToken  String      @unique
+  status        String      @default("pending")
+  createdAt     DateTime    @default(now())
+
+  @@unique([vacancyId, coordinatorId])
 }
 
 model VacancyProposal {

@@ -15,6 +15,7 @@ interface Coordinator { id: string; name: string; email: string; organization: {
 interface OrgVacancy { id: string; title: string; category: string; assigned: boolean; taken: boolean; }
 interface RosterEntry { id: string; name: string; email?: string | null; date?: string | null; role?: string | null; notes?: string | null; }
 interface Roster { id: string; vacancyId?: string | null; title: string; reminderDays: number; entries: RosterEntry[]; }
+interface TeamSection { id: string; type: string; title: string; content: string | null; url: string | null; order: number; }
 
 const RESPONSE_LABELS: Record<string, string> = {
   meedoen: "Wil meedoen", meekijken: "Wil meekijken", contact: "Wil contact", vraag: "Heeft een vraag",
@@ -66,7 +67,63 @@ export default function CoordinatorDashboard() {
   const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
   const [customCategory, setCustomCategory] = useState("");
 
+  // Teampagina
+  const [teamPageVacancyId, setTeamPageVacancyId] = useState<string | null>(null);
+  const [teamPageData, setTeamPageData] = useState<{ sections: TeamSection[]; slug: string; teamUrl: string } | null>(null);
+  const [teamPageLoading, setTeamPageLoading] = useState(false);
+  const [teamPageStep, setTeamPageStep] = useState<"info" | "edit">("info");
+  const [addSectionForm, setAddSectionForm] = useState({ type: "text", title: "", content: "", url: "" });
+  const [addingSec, setAddingSec] = useState(false);
+  const [editingSec, setEditingSec] = useState<string | null>(null);
+  const [editSecForm, setEditSecForm] = useState({ title: "", content: "", url: "" });
+
   function flash(m: string) { setMsg(m); setTimeout(() => setMsg(""), 4000); }
+
+  async function openTeamPage(vacancyId: string) {
+    setTeamPageVacancyId(vacancyId);
+    setTeamPageStep("info");
+    setTeamPageLoading(true);
+    setTeamPageData(null);
+    const r = await fetch(`/api/coordinator/vacancies/${vacancyId}/page-sections`);
+    if (r.ok) setTeamPageData(await r.json());
+    setTeamPageLoading(false);
+  }
+
+  async function addSection() {
+    if (!teamPageVacancyId || !addSectionForm.title.trim()) return;
+    setAddingSec(true);
+    const r = await fetch(`/api/coordinator/vacancies/${teamPageVacancyId}/page-sections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(addSectionForm),
+    });
+    if (r.ok) {
+      const sec = await r.json();
+      setTeamPageData((d) => d ? { ...d, sections: [...d.sections, sec] } : d);
+      setAddSectionForm({ type: "text", title: "", content: "", url: "" });
+    }
+    setAddingSec(false);
+  }
+
+  async function deleteSection(sectionId: string) {
+    if (!teamPageVacancyId) return;
+    await fetch(`/api/coordinator/vacancies/${teamPageVacancyId}/page-sections?sectionId=${sectionId}`, { method: "DELETE" });
+    setTeamPageData((d) => d ? { ...d, sections: d.sections.filter((s) => s.id !== sectionId) } : d);
+  }
+
+  async function saveSection(sectionId: string) {
+    if (!teamPageVacancyId) return;
+    const r = await fetch(`/api/coordinator/vacancies/${teamPageVacancyId}/page-sections`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sectionId, ...editSecForm }),
+    });
+    if (r.ok) {
+      const updated = await r.json();
+      setTeamPageData((d) => d ? { ...d, sections: d.sections.map((s) => s.id === sectionId ? updated : s) } : d);
+      setEditingSec(null);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -316,10 +373,16 @@ export default function CoordinatorDashboard() {
                             </div>
                             <p className="text-sm text-gray-500 mt-1">{v.shortDescription}</p>
                           </div>
-                          <button onClick={() => editingId === v.id ? setEditingId(null) : startEdit(v)}
-                            className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2.5 py-1.5 rounded-lg font-medium flex-shrink-0">
-                            {editingId === v.id ? "Sluiten" : "Bewerken"}
-                          </button>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button onClick={() => openTeamPage(v.id)}
+                              className="text-xs text-purple-600 hover:text-purple-800 border border-purple-200 hover:border-purple-400 px-2.5 py-1.5 rounded-lg font-medium">
+                              🌐 Teampagina
+                            </button>
+                            <button onClick={() => editingId === v.id ? setEditingId(null) : startEdit(v)}
+                              className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2.5 py-1.5 rounded-lg font-medium">
+                              {editingId === v.id ? "Sluiten" : "Bewerken"}
+                            </button>
+                          </div>
                         </div>
 
                         {editingId === v.id && (
@@ -652,6 +715,166 @@ export default function CoordinatorDashboard() {
               </button>
               <button onClick={() => setShowInvite(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Annuleren</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Teampagina modal */}
+      {teamPageVacancyId && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-0 sm:px-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setTeamPageVacancyId(null); setTeamPageData(null); } }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
+            {teamPageLoading ? (
+              <div className="p-10 text-center text-gray-400">Laden…</div>
+            ) : teamPageStep === "info" ? (
+              /* ── Stap 1: Uitleg ── */
+              <div className="p-6">
+                <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mb-5 mx-auto">
+                  <svg className="w-7 h-7 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 text-center mb-2">Jouw teampagina</h2>
+                <p className="text-sm text-gray-500 text-center mb-6">Een vaste pagina die jij beheert — altijd dezelfde link.</p>
+
+                <div className="space-y-4 mb-6">
+                  {[
+                    { icon: "🔗", title: "Altijd bereikbaar", text: "De link verandert nooit. Deel hem eenmalig met je vrijwilligers en ze kunnen er altijd op terugkomen." },
+                    { icon: "📄", title: "Jij bepaalt de inhoud", text: "Voeg tekst, documenten of links toe. Denk aan een rooster, handleiding, contactinfo of een uitleg van de taak." },
+                    { icon: "🔒", title: "Veilig en stabiel", text: "Alles wat je hier plaatst blijft staan. Geen account nodig voor je vrijwilligers om het te lezen." },
+                  ].map((item) => (
+                    <div key={item.title} className="flex gap-3 bg-gray-50 rounded-xl p-4">
+                      <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">{item.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {teamPageData?.teamUrl && (
+                  <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-purple-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span className="text-sm text-purple-700 font-mono truncate flex-1">{teamPageData.teamUrl}</span>
+                    <button onClick={() => { navigator.clipboard.writeText(teamPageData!.teamUrl); flash("Link gekopieerd!"); }}
+                      className="text-xs text-purple-600 font-medium flex-shrink-0 hover:text-purple-800">Kopieer</button>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button onClick={() => setTeamPageStep("edit")}
+                    className="flex-1 bg-purple-600 text-white py-2.5 rounded-xl font-medium hover:bg-purple-700">
+                    Pagina beheren →
+                  </button>
+                  <button onClick={() => { setTeamPageVacancyId(null); setTeamPageData(null); }}
+                    className="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-sm">
+                    Sluiten
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── Stap 2: Bewerken ── */
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <button onClick={() => setTeamPageStep("info")} className="text-sm text-gray-400 hover:text-gray-600 mb-1">← Terug</button>
+                    <h2 className="text-lg font-bold text-gray-900">Teampagina beheren</h2>
+                  </div>
+                  {teamPageData?.teamUrl && (
+                    <a href={teamPageData.teamUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg hover:bg-purple-50 font-medium">
+                      Bekijk pagina ↗
+                    </a>
+                  )}
+                </div>
+
+                {/* Bestaande secties */}
+                <div className="space-y-3 mb-5">
+                  {teamPageData?.sections.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-3">Nog geen secties. Voeg er hieronder een toe.</p>
+                  )}
+                  {teamPageData?.sections.map((s) => (
+                    <div key={s.id} className="border border-gray-200 rounded-xl p-4">
+                      {editingSec === s.id ? (
+                        <div className="space-y-2">
+                          <input value={editSecForm.title} onChange={(e) => setEditSecForm((f) => ({ ...f, title: e.target.value }))}
+                            placeholder="Titel" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                          {s.type === "link" ? (
+                            <>
+                              <input value={editSecForm.url} onChange={(e) => setEditSecForm((f) => ({ ...f, url: e.target.value }))}
+                                placeholder="URL (https://...)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                              <input value={editSecForm.content} onChange={(e) => setEditSecForm((f) => ({ ...f, content: e.target.value }))}
+                                placeholder="Knoptekst (optioneel)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </>
+                          ) : (
+                            <textarea rows={3} value={editSecForm.content} onChange={(e) => setEditSecForm((f) => ({ ...f, content: e.target.value }))}
+                              placeholder="Inhoud" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                          )}
+                          <div className="flex gap-2">
+                            <button onClick={() => saveSection(s.id)} className="flex-1 bg-purple-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-purple-700">Opslaan</button>
+                            <button onClick={() => setEditingSec(null)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600">Annuleren</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900">{s.title}</p>
+                            {s.type === "link"
+                              ? <p className="text-xs text-purple-600 truncate mt-0.5">{s.url}</p>
+                              : <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{s.content}</p>}
+                          </div>
+                          <div className="flex gap-1.5 flex-shrink-0">
+                            <button onClick={() => { setEditingSec(s.id); setEditSecForm({ title: s.title, content: s.content || "", url: s.url || "" }); }}
+                              className="text-xs text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-50">Bewerken</button>
+                            <button onClick={() => deleteSection(s.id)}
+                              className="text-xs text-red-500 border border-red-200 px-2 py-1 rounded hover:bg-red-50">✕</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Nieuwe sectie toevoegen */}
+                <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-gray-50">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Sectie toevoegen</p>
+                  <div className="flex gap-2 mb-3">
+                    <button onClick={() => setAddSectionForm((f) => ({ ...f, type: "text" }))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${addSectionForm.type === "text" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
+                      Tekst
+                    </button>
+                    <button onClick={() => setAddSectionForm((f) => ({ ...f, type: "link" }))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${addSectionForm.type === "link" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200"}`}>
+                      Link / Document
+                    </button>
+                  </div>
+                  <input value={addSectionForm.title} onChange={(e) => setAddSectionForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="Titel van deze sectie"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                  {addSectionForm.type === "link" ? (
+                    <>
+                      <input value={addSectionForm.url} onChange={(e) => setAddSectionForm((f) => ({ ...f, url: e.target.value }))}
+                        placeholder="URL (https://...)"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                      <input value={addSectionForm.content} onChange={(e) => setAddSectionForm((f) => ({ ...f, content: e.target.value }))}
+                        placeholder="Knoptekst (optioneel, bijv. 'Open rooster')"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                    </>
+                  ) : (
+                    <textarea rows={3} value={addSectionForm.content} onChange={(e) => setAddSectionForm((f) => ({ ...f, content: e.target.value }))}
+                      placeholder="Tekst die vrijwilligers zien…"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                  )}
+                  <button onClick={addSection} disabled={addingSec || !addSectionForm.title.trim()}
+                    className="w-full bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-40">
+                    {addingSec ? "Toevoegen…" : "+ Sectie toevoegen"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

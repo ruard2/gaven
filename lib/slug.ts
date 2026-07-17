@@ -10,6 +10,25 @@ export function generateSlug(name: string): string {
     .substring(0, 60);
 }
 
+export async function ensureVacancySlug(
+  prisma: { vacancy: { findMany: (a: object) => Promise<{ slug: string | null }[]>; update: (a: object) => Promise<unknown> } },
+  vacancyId: string,
+  title: string,
+  organizationId: string
+): Promise<string> {
+  const base = generateSlug(title) || "functie";
+  const siblings = await prisma.vacancy.findMany({
+    where: { organizationId, id: { not: vacancyId } },
+    select: { slug: true },
+  });
+  const taken = new Set(siblings.map((v) => v.slug).filter(Boolean));
+  let slug = base;
+  let n = 2;
+  while (taken.has(slug)) { slug = `${base}-${n++}`; }
+  await prisma.vacancy.update({ where: { id: vacancyId }, data: { slug } });
+  return slug;
+}
+
 export function generatePublicCode(length = 6): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length }, () =>
