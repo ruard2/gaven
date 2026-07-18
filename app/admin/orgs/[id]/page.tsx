@@ -717,6 +717,39 @@ function CoordDetailPanel({ detail, onClose, onDelete, onResend }: {
   onResend: (id: string) => void;
 }) {
   const [tab, setTab] = useState<"overzicht" | "aanmeldingen" | "vrijwilligers">("overzicht");
+  const [editVacId, setEditVacId] = useState<string | null>(null);
+  const [vacForm, setVacForm] = useState({ title: "", category: "", shortDescription: "", status: "active" });
+  const [vacLoading, setVacLoading] = useState(false);
+  const [vacSaving, setVacSaving] = useState(false);
+  const [vacMsg, setVacMsg] = useState("");
+  const [localVacancies, setLocalVacancies] = useState(detail.vacancies);
+
+  async function openVacEdit(vacId: string) {
+    if (editVacId === vacId) { setEditVacId(null); return; }
+    setEditVacId(vacId); setVacLoading(true); setVacMsg("");
+    const r = await fetch(`/api/admin/vacancies/${vacId}`);
+    if (r.ok) {
+      const v = await r.json();
+      setVacForm({ title: v.title || "", category: v.category || "", shortDescription: v.shortDescription || "", status: v.status || "active" });
+    }
+    setVacLoading(false);
+  }
+
+  async function saveVacEdit(vacId: string) {
+    setVacSaving(true); setVacMsg("");
+    const r = await fetch(`/api/admin/vacancies/${vacId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: vacForm.title.trim(), category: vacForm.category.trim(), shortDescription: vacForm.shortDescription.trim(), status: vacForm.status }),
+    });
+    setVacSaving(false);
+    if (r.ok) {
+      setLocalVacancies((prev) => prev.map((v) => v.id === vacId ? { ...v, title: vacForm.title.trim(), category: vacForm.category.trim(), status: vacForm.status } : v));
+      setEditVacId(null);
+    } else {
+      setVacMsg("Opslaan mislukt");
+    }
+  }
+
   const statusColor = detail.status === "active" ? "bg-green-100 text-green-700"
     : detail.status === "invited" ? "bg-amber-100 text-amber-700"
     : "bg-gray-100 text-gray-500";
@@ -764,26 +797,77 @@ function CoordDetailPanel({ detail, onClose, onDelete, onResend }: {
         <div className="space-y-4">
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Functies</p>
-            {detail.vacancies.length === 0 ? (
+            {localVacancies.length === 0 ? (
               <p className="text-sm text-gray-400">Geen functies gekoppeld.</p>
             ) : (
               <div className="space-y-2">
-                {detail.vacancies.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{v.title}</p>
-                      <p className="text-xs text-gray-400">{v.category}</p>
-                    </div>
-                    <div className="flex gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
-                        {v._count.memberships} vrijwilligers
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        {v._count.applications} aanmeldingen
-                      </span>
-                    </div>
+                {localVacancies.map((v) => (
+                  <div key={v.id} className="bg-gray-50 rounded-xl overflow-hidden">
+                    <button onClick={() => openVacEdit(v.id)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-100 transition-colors">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{v.title}</p>
+                        <p className="text-xs text-gray-400">{v.category}{v.status !== "active" && <span className="text-amber-500"> · {v.status}</span>}</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+                          {v._count.memberships} vrijwilligers
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                          {v._count.applications} aanmeldingen
+                        </span>
+                        <svg className={`w-4 h-4 text-gray-300 transition-transform ${editVacId === v.id ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {editVacId === v.id && (
+                      <div className="border-t border-gray-200 px-4 py-3 space-y-2 bg-white">
+                        {vacLoading ? (
+                          <p className="text-xs text-gray-400 py-2 text-center">Laden…</p>
+                        ) : (
+                          <>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-0.5">Titel</label>
+                              <input value={vacForm.title} onChange={(e) => setVacForm((f) => ({ ...f, title: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-0.5">Categorie</label>
+                                <input value={vacForm.category} onChange={(e) => setVacForm((f) => ({ ...f, category: e.target.value }))}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-0.5">Status</label>
+                                <select value={vacForm.status} onChange={(e) => setVacForm((f) => ({ ...f, status: e.target.value }))}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                  <option value="active">Actief</option>
+                                  <option value="inactive">Non-actief</option>
+                                  <option value="pending">In afwachting</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-0.5">Korte omschrijving</label>
+                              <textarea value={vacForm.shortDescription} onChange={(e) => setVacForm((f) => ({ ...f, shortDescription: e.target.value }))}
+                                rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                            </div>
+                            {vacMsg && <p className="text-xs text-red-600">{vacMsg}</p>}
+                            <div className="flex gap-2 pt-1">
+                              <button onClick={() => saveVacEdit(v.id)} disabled={vacSaving || !vacForm.title.trim()}
+                                className="px-4 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                                {vacSaving ? "Opslaan…" : "Opslaan"}
+                              </button>
+                              <button onClick={() => setEditVacId(null)} className="px-4 py-1.5 border border-gray-200 text-xs text-gray-600 rounded-lg">Annuleren</button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
