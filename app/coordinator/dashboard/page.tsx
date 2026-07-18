@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CATEGORIES } from "@/lib/categories";
 
 interface Participant { name: string; email: string; phone?: string | null; }
 interface Application { id: string; responseType: string; status: string; createdAt: string; participant: Participant; }
@@ -35,9 +34,8 @@ export default function CoordinatorDashboard() {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Vacatures blok
+  // Vacatures blok — editingId toggelt de aanmeldingen-uitklap per vacature
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Vacancy>>({});
 
   // Taken beheren blok
   const [expandedBeheer, setExpandedBeheer] = useState<string | null>(null);
@@ -65,10 +63,6 @@ export default function CoordinatorDashboard() {
   const [inviteForm, setInviteForm] = useState({ to: "", subject: "", body: "", ctaLabel: "Ja, ik doe mee!" });
   const [inviteSending, setInviteSending] = useState(false);
 
-  // Nieuwe vacature
-  const [showNewVacancy, setShowNewVacancy] = useState(false);
-  const [newVacForm, setNewVacForm] = useState({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
-  const [customCategory, setCustomCategory] = useState("");
 
   // Coördinator homepage
   interface HomepageData { roleTitle: string | null; pageIntro: string | null; pageUrl: string; pageSections: TeamSection[] }
@@ -218,45 +212,6 @@ export default function CoordinatorDashboard() {
   }, [router]);
 
   // ── Vacatures beheren ────────────────────────────────────────────────
-  function startEdit(v: Vacancy) {
-    setEditingId(v.id);
-    setEditForm({ title: v.title, shortDescription: v.shortDescription, whyValuable: v.whyValuable || "", concreteTasks: v.concreteTasks || "", firstStep: v.firstStep || "" });
-  }
-
-  async function saveEdit(id: string) {
-    setSaving(true);
-    await fetch(`/api/coordinator/vacancies/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm) });
-    setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, ...editForm } : v));
-    setEditingId(null); setSaving(false);
-    flash("Vacature opgeslagen");
-  }
-
-  async function updateStatus(id: string, status: string) {
-    await fetch(`/api/coordinator/vacancies/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    setVacancies((prev) => prev.map((v) => v.id === id ? { ...v, status } : v));
-  }
-
-  async function deleteVacancy(id: string) {
-    if (!confirm("Vacature definitief verwijderen?")) return;
-    await fetch(`/api/coordinator/vacancies/${id}`, { method: "DELETE" });
-    setVacancies((prev) => prev.filter((v) => v.id !== id));
-  }
-
-  async function createVacancy() {
-    const effectiveCategory = newVacForm.category === "Anders…" ? customCategory.trim() : newVacForm.category;
-    if (!newVacForm.title.trim() || !effectiveCategory || !newVacForm.shortDescription.trim()) return;
-    setSaving(true);
-    const res = await fetch("/api/coordinator/vacancies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...newVacForm, category: effectiveCategory }) });
-    const v = await res.json();
-    if (v.id) {
-      setVacancies((prev) => [v, ...prev]);
-      setShowNewVacancy(false);
-      setNewVacForm({ title: "", category: "", shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
-      setCustomCategory("");
-      flash("Vacature aangemaakt");
-    }
-    setSaving(false);
-  }
 
   // ── Vrijwilligers beheren ─────────────────────────────────────────────
   async function addMember(vacancyId: string) {
@@ -423,7 +378,7 @@ export default function CoordinatorDashboard() {
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowNewVacancy(true)} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
+            <button onClick={() => router.push("/coordinator/vacatures/nieuw")} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
               + Nieuwe vacature
             </button>
             <button onClick={openHomepage} className="text-xs text-purple-700 hover:text-purple-900 px-3 py-1.5 border border-purple-200 bg-purple-50 rounded-lg">
@@ -458,7 +413,7 @@ export default function CoordinatorDashboard() {
           {vacancies.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
               <p className="mb-4">Nog geen vacatures. Maak er een aan om vrijwilligers te werven.</p>
-              <button onClick={() => setShowNewVacancy(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Nieuwe vacature</button>
+              <button onClick={() => router.push("/coordinator/vacatures/nieuw")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Nieuwe vacature</button>
             </div>
           ) : (
             <div className="space-y-8">
@@ -484,66 +439,41 @@ export default function CoordinatorDashboard() {
                             <p className="text-sm text-gray-500 mt-1">{v.shortDescription}</p>
                           </div>
                           <div className="flex gap-2 flex-shrink-0">
-                            <button onClick={() => editingId === v.id ? setEditingId(null) : startEdit(v)}
+                            <button onClick={() => setEditingId(editingId === v.id ? null : v.id)}
+                              className="text-xs text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-400 px-2.5 py-1.5 rounded-lg font-medium">
+                              Aanmeldingen ({v.applications.length})
+                            </button>
+                            <button onClick={() => router.push(`/coordinator/vacatures/${v.id}`)}
                               className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2.5 py-1.5 rounded-lg font-medium">
-                              {editingId === v.id ? "Sluiten" : "Bewerken"}
+                              Bewerken
                             </button>
                           </div>
                         </div>
 
                         {editingId === v.id && (
-                          <div className="border-t border-gray-100 p-4 bg-gray-50 space-y-3">
-                            {[
-                              { key: "title", label: "Naam", type: "input" },
-                              { key: "shortDescription", label: "Korte omschrijving", type: "input" },
-                              { key: "whyValuable", label: "Waarom waardevol?", type: "textarea" },
-                              { key: "concreteTasks", label: "Wat doe je concreet?", type: "textarea" },
-                              { key: "firstStep", label: "Eerste stap", type: "textarea" },
-                            ].map(({ key, label, type }) => (
-                              <div key={key}>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-                                {type === "input"
-                                  ? <input value={(editForm as Record<string, string>)[key] ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
-                                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                  : <textarea rows={3} value={(editForm as Record<string, string>)[key] ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
-                                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />}
-                              </div>
-                            ))}
-                            <div className="flex gap-2 flex-wrap pt-1">
-                              <button onClick={() => saveEdit(v.id)} disabled={saving}
-                                className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                                {saving ? "Opslaan…" : "Opslaan"}
-                              </button>
-                              {v.status === "active"
-                                ? <button onClick={() => updateStatus(v.id, "inactive")} className="text-sm px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-amber-300 text-amber-600">Non-actief</button>
-                                : <button onClick={() => updateStatus(v.id, "active")} className="text-sm px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-green-300 text-green-600">Activeren</button>}
-                              <button onClick={() => deleteVacancy(v.id)} className="text-sm px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-red-300 text-red-500">Verwijderen</button>
-                              <button onClick={() => setEditingId(null)} className="text-sm px-3 py-2 rounded-lg border border-gray-200 text-gray-500 ml-auto">Annuleren</button>
-                            </div>
-
-                            {/* Aanmeldingen inline */}
-                            {v.applications.length > 0 && (
-                              <div className="pt-3 border-t border-gray-200">
+                          <div className="border-t border-gray-100 p-4 bg-gray-50">
+                            {v.applications.length === 0 ? (
+                              <p className="text-sm text-gray-400 text-center py-2">Nog geen aanmeldingen voor deze vacature.</p>
+                            ) : (
+                              <div className="space-y-2">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Aanmeldingen</p>
-                                <div className="space-y-2">
-                                  {v.applications.map((a) => (
-                                    <div key={a.id} className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div>
-                                          <span className="font-medium text-gray-900 text-sm">{a.participant.name}</span>
-                                          <div className="text-xs text-gray-400">{a.participant.email}{a.participant.phone && ` · ${a.participant.phone}`}</div>
-                                        </div>
-                                        <span className="text-xs text-gray-400">{RESPONSE_LABELS[a.responseType] || a.responseType}</span>
+                                {v.applications.map((a) => (
+                                  <div key={a.id} className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div>
+                                        <span className="font-medium text-gray-900 text-sm">{a.participant.name}</span>
+                                        <div className="text-xs text-gray-400">{a.participant.email}{a.participant.phone && ` · ${a.participant.phone}`}</div>
                                       </div>
-                                      <CoordContactButtons
-                                        name={a.participant.name}
-                                        email={a.participant.email}
-                                        phone={a.participant.phone ?? null}
-                                        vacancyTitle={v.title}
-                                      />
+                                      <span className="text-xs text-gray-400">{RESPONSE_LABELS[a.responseType] || a.responseType}</span>
                                     </div>
-                                  ))}
-                                </div>
+                                    <CoordContactButtons
+                                      name={a.participant.name}
+                                      email={a.participant.email}
+                                      phone={a.participant.phone ?? null}
+                                      vacancyTitle={v.title}
+                                    />
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -1121,59 +1051,6 @@ export default function CoordinatorDashboard() {
         </div>
       )}
 
-      {/* Nieuwe vacature modal */}
-      {showNewVacancy && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setShowNewVacancy(false); }}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h2 className="font-bold text-gray-900 mb-4">Nieuwe vacature aanmaken</h2>
-            <div className="space-y-3">
-              {[
-                { key: "title", label: "Naam *", placeholder: "bijv. Muzikant, Kinderoppas, Koster", type: "input" },
-                { key: "shortDescription", label: "Korte omschrijving *", placeholder: "Wat houdt de taak in?", type: "input" },
-                { key: "whyValuable", label: "Waarom waardevol?", placeholder: "", type: "textarea" },
-                { key: "concreteTasks", label: "Wat doe je concreet?", placeholder: "", type: "textarea" },
-                { key: "firstStep", label: "Eerste stap", placeholder: "Hoe begin je als nieuwe vrijwilliger?", type: "input" },
-              ].map(({ key, label, placeholder, type }) => (
-                <div key={key}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-                  {type === "input"
-                    ? <input value={(newVacForm as Record<string, string>)[key]} placeholder={placeholder}
-                        onChange={(e) => setNewVacForm((f) => ({ ...f, [key]: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    : <textarea rows={2} value={(newVacForm as Record<string, string>)[key]}
-                        onChange={(e) => setNewVacForm((f) => ({ ...f, [key]: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />}
-                </div>
-              ))}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Categorie *</label>
-                <select value={newVacForm.category} onChange={(e) => { setNewVacForm((f) => ({ ...f, category: e.target.value })); if (e.target.value !== "Anders…") setCustomCategory(""); }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">— Kies een categorie —</option>
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                  <option value="Anders…">Anders…</option>
-                </select>
-                {newVacForm.category === "Anders…" && (
-                  <input
-                    autoFocus
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    placeholder="Typ je eigen categorie"
-                    className="mt-2 w-full border border-blue-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                )}
-              </div>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={createVacancy} disabled={saving || !newVacForm.title.trim() || !newVacForm.category || (newVacForm.category === "Anders…" && !customCategory.trim()) || !newVacForm.shortDescription.trim()}
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {saving ? "Aanmaken…" : "Vacature aanmaken"}
-              </button>
-              <button onClick={() => setShowNewVacancy(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600">Annuleren</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

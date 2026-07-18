@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const coord = await requireCoordinator();
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, category, shortDescription, whyValuable, concreteTasks, firstStep } = await req.json();
+  const { title, category, shortDescription, whyValuable, concreteTasks, firstStep, qualityWeights } = await req.json();
   if (!title?.trim() || !category?.trim()) {
     return NextResponse.json({ error: "Naam en categorie zijn verplicht" }, { status: 400 });
   }
@@ -41,6 +41,15 @@ export async function POST(req: NextRequest) {
       contactPersonName: coord.name,
       contactPersonEmail: coord.email,
       status: "active",
+      ...(qualityWeights && Object.keys(qualityWeights).length > 0
+        ? {
+            qualityWeights: {
+              create: Object.entries(qualityWeights as Record<string, number>)
+                .filter(([, w]) => Number(w) > 0)
+                .map(([qualityId, weight]) => ({ qualityId, weight: Number(weight) })),
+            },
+          }
+        : {}),
     },
     include: { applications: true, memberships: true, qualityWeights: true },
   });
