@@ -29,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!vacancy) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
 
   const body = await req.json();
-  const { title, category, shortDescription, whyValuable, concreteTasks, firstStep, status, qualityWeights } = body;
+  const { title, category, shortDescription, whyValuable, concreteTasks, longDescription, firstStep, status, qualityWeights } = body;
 
   const updated = await prisma.vacancy.update({
     where: { id },
@@ -39,6 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(shortDescription !== undefined && { shortDescription }),
       ...(whyValuable !== undefined && { whyValuable }),
       ...(concreteTasks !== undefined && { concreteTasks }),
+      ...(longDescription !== undefined && { longDescription }),
       ...(firstStep !== undefined && { firstStep }),
       ...(status && { status }),
       ...(qualityWeights

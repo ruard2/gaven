@@ -9,7 +9,7 @@ const allQualities = QUALITY_CATEGORIES.flatMap((c) => c.qualities);
 
 export default function CoordinatorVacancyNew() {
   const router = useRouter();
-  const [form, setForm] = useState({ title: "", category: CATEGORIES[0], shortDescription: "", whyValuable: "", concreteTasks: "", firstStep: "" });
+  const [form, setForm] = useState({ title: "", category: CATEGORIES[0], shortDescription: "", whyValuable: "", concreteTasks: "", longDescription: "", firstStep: "" });
   const [customCategory, setCustomCategory] = useState("");
   const [qualityWeights, setQualityWeights] = useState<Record<string, number>>({});
   const [sortedIds, setSortedIds] = useState<string[]>([]);
@@ -69,6 +69,7 @@ export default function CoordinatorVacancyNew() {
     { field: "shortDescription", label: "Korte omschrijving", required: true, placeholder: "In één zin: wat houdt de taak in?" },
     { field: "whyValuable", label: "Waarom is dit waardevol?", textarea: true },
     { field: "concreteTasks", label: "Wat doe je concreet?", textarea: true },
+    { field: "longDescription", label: "Extra informatie", textarea: true, placeholder: "Optioneel — aanvullende details" },
     { field: "firstStep", label: "Goede eerste stap", placeholder: "Hoe begin je als nieuwe vrijwilliger?" },
   ];
 

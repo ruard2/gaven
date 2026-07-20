@@ -13,6 +13,7 @@ interface Vacancy {
   shortDescription: string;
   whyValuable: string | null;
   concreteTasks: string | null;
+  longDescription: string | null;
   firstStep: string | null;
   status: string;
   qualityWeights: { qualityId: string; weight: number }[];
@@ -83,6 +84,7 @@ export default function CoordinatorVacancyEdit() {
         shortDescription: vacancy.shortDescription,
         whyValuable: vacancy.whyValuable,
         concreteTasks: vacancy.concreteTasks,
+        longDescription: vacancy.longDescription,
         firstStep: vacancy.firstStep,
         status: vacancy.status,
         qualityWeights,
@@ -114,6 +116,7 @@ export default function CoordinatorVacancyEdit() {
     { field: "shortDescription", label: "Korte omschrijving", required: true },
     { field: "whyValuable", label: "Waarom is dit waardevol?", textarea: true },
     { field: "concreteTasks", label: "Wat doe je concreet?", textarea: true },
+    { field: "longDescription", label: "Extra informatie", textarea: true },
     { field: "firstStep", label: "Goede eerste stap" },
   ];
 

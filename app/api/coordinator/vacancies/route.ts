@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const coord = await requireCoordinator();
   if (!coord) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, category, shortDescription, whyValuable, concreteTasks, firstStep, qualityWeights } = await req.json();
+  const { title, category, shortDescription, whyValuable, concreteTasks, longDescription, firstStep, qualityWeights } = await req.json();
   if (!title?.trim() || !category?.trim()) {
     return NextResponse.json({ error: "Naam en categorie zijn verplicht" }, { status: 400 });
   }
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       shortDescription: shortDescription?.trim() || "",
       whyValuable: whyValuable?.trim() || null,
       concreteTasks: concreteTasks?.trim() || null,
+      longDescription: longDescription?.trim() || null,
       firstStep: firstStep?.trim() || null,
       contactPersonName: coord.name,
       contactPersonEmail: coord.email,
