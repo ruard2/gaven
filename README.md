@@ -34,3 +34,16 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Community Tools-koppeling
+
+Gaven kan als productapp vanuit Community Tools worden geopend zonder tweede
+registratie. Stel in productie deze server-side variabelen in:
+
+- `COMMUNITY_TOOLS_URL=https://communitytools.nl`
+- `COMMUNITY_TOOLS_CLIENT_ID` — uitgegeven door Community Tools
+- `COMMUNITY_TOOLS_CLIENT_SECRET` — eenmalig uitgegeven productgeheim
+
+De launch-URL in Community Tools is
+`https://<gaven-domein>/api/community-tools/sso`. Het korte `ct_ticket` wordt
+server-side omgewisseld. Gaven bewaart daarna alleen de stabiele centrale
+gebruikers- en organisatie-ID's; lokale productdata blijft in Gaven.

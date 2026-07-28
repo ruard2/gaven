@@ -9,13 +9,16 @@ datasource db {
 model Admin {
   id           String   @id @default(cuid())
   email        String   @unique
+  communityToolsUserId String? @unique
   passwordHash String
   createdAt    DateTime @default(now())
   organizations Organization[]
+  communityToolsAccounts CommunityToolsAccount[]
 }
 
 model Organization {
   id               String   @id @default(cuid())
+  communityToolsOrganizationId String? @unique
   name             String
   slug             String   @unique
   publicCode       String   @unique
@@ -35,6 +38,24 @@ model Organization {
   applications     Application[]
   inviteTokens     InviteToken[]
   coordinators     Coordinator[]
+  communityToolsAccounts CommunityToolsAccount[]
+}
+
+model CommunityToolsAccount {
+  id                           String       @id @default(cuid())
+  communityToolsUserId         String
+  communityToolsOrganizationId String
+  email                        String
+  name                         String
+  adminId                      String
+  admin                        Admin        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  organizationId               String
+  organization                 Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt                    DateTime     @default(now())
+  updatedAt                    DateTime     @updatedAt
+
+  @@unique([communityToolsUserId, communityToolsOrganizationId])
+  @@index([organizationId])
 }
 
 model Coordinator {
