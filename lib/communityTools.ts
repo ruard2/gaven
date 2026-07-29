@@ -31,7 +31,9 @@ export async function exchangeCommunityToolsTicket(ticket: string) {
     context.product?.code !== "gifts_matching" ||
     !context.user?.id ||
     !context.organization?.id ||
-    !context.user?.email
+    !context.user?.email ||
+    !context.organization?.name ||
+    !["owner", "admin"].includes(context.organization?.role)
   ) {
     throw new Error("Onvolledige Community Tools-context.");
   }

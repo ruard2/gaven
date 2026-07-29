@@ -117,7 +117,8 @@ export async function GET(request: NextRequest) {
     });
 
     const response = NextResponse.redirect(
-      new URL("/admin/dashboard", request.url),
+      applicationUrl("/admin/dashboard", request),
+      303,
     );
     response.cookies.set("admin_token", signAdminToken(admin.id), {
       httpOnly: true,
@@ -127,11 +128,22 @@ export async function GET(request: NextRequest) {
       path: "/",
     });
     return response;
-  } catch {
+  } catch (error) {
+    console.error(
+      "[community-tools-sso]",
+      error instanceof Error ? error.message : "Onbekende SSO-fout",
+    );
     return NextResponse.redirect(
-      new URL("/admin/login?error=community-tools", request.url),
+      applicationUrl("/admin/login?error=community-tools", request),
+      303,
     );
   }
+}
+
+function applicationUrl(path: string, request: NextRequest) {
+  const configuredUrl =
+    process.env.APP_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
+  return new URL(path, configuredUrl || request.nextUrl.origin);
 }
 
 type Transaction = Parameters<

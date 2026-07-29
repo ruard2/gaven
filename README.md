@@ -39,7 +39,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 Gaven kan als productapp vanuit Community Tools worden geopend zonder tweede
 registratie. Stel in productie deze server-side variabelen in:
 
-- `COMMUNITY_TOOLS_URL=https://communitytools.nl`
+- `APP_URL=https://www.gavenmatch.nl`
+- `COMMUNITY_TOOLS_URL=https://www.communitytools.online`
 - `COMMUNITY_TOOLS_CLIENT_ID` — uitgegeven door Community Tools
 - `COMMUNITY_TOOLS_CLIENT_SECRET` — eenmalig uitgegeven productgeheim
 
