@@ -10,7 +10,7 @@ COMMUNITY_TOOLS_MANAGEMENT_ENABLED=true
 COMMUNITY_TOOLS_MANAGEMENT_SECRET=<apart lang geheim, gelijk aan de GavenMatch-waarde in Community Tools>
 ```
 
-De read-only route
-`GET /api/community-tools/v1/organizations/{organizationId}/users` toont alleen
-gekoppelde organisatiebeheerders en coördinatoren. Deelnemers, talentprofielen,
-vacatures, matches en sollicitaties worden niet uitgelezen.
+De gebruikersroute toont gekoppelde organisatiebeheerders, coördinatoren en
+deelnemers in afzonderlijke categorieën. Alleen naam, e-mail en status zijn
+centraal te beheren. Talentprofielen, vacatures, matches en sollicitaties worden
+niet uitgelezen.

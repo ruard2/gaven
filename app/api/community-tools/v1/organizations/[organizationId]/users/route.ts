@@ -27,6 +27,10 @@ export async function GET(
         select: { id: true, name: true, email: true, status: true },
         orderBy: [{ name: "asc" }, { email: "asc" }],
       },
+      participants: {
+        select: { id: true, name: true, email: true },
+        orderBy: [{ name: "asc" }, { email: "asc" }],
+      },
     },
   });
   if (!organization) {
@@ -43,6 +47,7 @@ export async function GET(
     email: string;
     role: string;
     status: string;
+    kind: string;
   }> = organization.communityToolsAccounts.map((account) => ({
     id: `central-admin:${account.id}`,
     communityToolsUserId: account.communityToolsUserId,
@@ -50,6 +55,7 @@ export async function GET(
     email: account.email,
     role: "organization_admin",
     status: "active",
+    kind: "admin",
   }));
   if (
     !organization.communityToolsAccounts.some(
@@ -63,6 +69,7 @@ export async function GET(
       email: organization.admin.email,
       role: "organization_admin",
       status: "active",
+      kind: "admin",
     });
   }
   users.push(
@@ -73,6 +80,18 @@ export async function GET(
       email: coordinator.email,
       role: "coordinator",
       status: coordinator.status === "active" ? "active" : "pending",
+      kind: "admin",
+    })),
+  );
+  users.push(
+    ...organization.participants.map((participant) => ({
+      id: `participant:${participant.id}`,
+      communityToolsUserId: null,
+      name: participant.name || participant.email,
+      email: participant.email,
+      role: "participant",
+      status: "active",
+      kind: "user",
     })),
   );
 
