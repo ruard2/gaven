@@ -26,15 +26,15 @@ type Step = "form" | "weights" | "done";
 async function generateWeights(
   title: string, category: string, shortDescription: string,
   whyValuable: string, concreteTasks: string
-): Promise<Record<string, number>> {
+): Promise<{ weights: Record<string, number>; specificRequirements: string[]; taskLevel: string }> {
   const res = await fetch("/api/admin/vacancies/generate-weights", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, category, shortDescription, whyValuable, concreteTasks }),
   });
-  if (!res.ok) return {};
+  if (!res.ok) return { weights: {}, specificRequirements: [], taskLevel: "regulier" };
   const d = await res.json();
-  return d.weights || {};
+  return { weights: d.weights || {}, specificRequirements: d.specificRequirements || [], taskLevel: d.taskLevel || "regulier" };
 }
 
 function weightColor(w: number) {
@@ -69,6 +69,10 @@ export default function NewVacancyPage() {
   // Step 2: weights
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [generatingWeights, setGeneratingWeights] = useState(false);
+  const [minAge, setMinAge] = useState("");
+  const [taskLevel, setTaskLevel] = useState("regulier");
+  const [specificRequirements, setSpecificRequirements] = useState<string[]>([]);
+  const [reqInput, setReqInput] = useState("");
 
   const [loadingOrg, setLoadingOrg] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,12 +95,12 @@ export default function NewVacancyPage() {
     setGeneratingWeights(true);
     setStep("weights");
 
-    const raw = await generateWeights(
+    const gen = await generateWeights(
       form.title, form.category, form.shortDescription,
       form.whyValuable, form.concreteTasks
-    ).catch(() => ({}));
+    ).catch(() => ({ weights: {} as Record<string, number>, specificRequirements: [] as string[], taskLevel: "regulier" }));
 
-    const entries: WeightEntry[] = Object.entries(raw)
+    const entries: WeightEntry[] = Object.entries(gen.weights)
       .sort(([, a], [, b]) => b - a)
       .map(([id, weight]) => ({
         id,
@@ -105,6 +109,8 @@ export default function NewVacancyPage() {
       }));
 
     setWeights(entries);
+    setSpecificRequirements(gen.specificRequirements);
+    setTaskLevel(gen.taskLevel);
     setGeneratingWeights(false);
   }
 
@@ -126,7 +132,7 @@ export default function NewVacancyPage() {
     const res = await fetch(`/api/editor/${token}/vacatures/nieuw`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, editorName, qualityWeights }),
+      body: JSON.stringify({ ...form, editorName, qualityWeights, minAge: minAge ? Number(minAge) : null, taskLevel, specificRequirements }),
     });
     if (res.ok) {
       setStep("done");
@@ -239,6 +245,40 @@ export default function NewVacancyPage() {
               </div>
             )}
 
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Verantwoordelijkheidsniveau</label>
+                <select value={taskLevel} onChange={(e) => setTaskLevel(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="instap">Instap — dienend, laagdrempelig</option>
+                  <option value="regulier">Regulier — meedraaien</option>
+                  <option value="verantwoordelijk">Verantwoordelijk — vertrouwen/overzicht</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vereist specialisme</label>
+                <p className="text-xs text-gray-500 mb-2">Alleen wie dit met zoveel woorden noemt wordt gekoppeld (bijv. <em>orgel</em>). Meestal leeg laten.</p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {specificRequirements.map((r) => (
+                    <span key={r} className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                      {r}
+                      <button type="button" onClick={() => setSpecificRequirements((s) => s.filter((x) => x !== r))} className="text-amber-500 hover:text-amber-700" aria-label={`Verwijder ${r}`}>×</button>
+                    </span>
+                  ))}
+                  {specificRequirements.length === 0 && <span className="text-xs text-gray-400">Geen — toegankelijk voor iedereen.</span>}
+                </div>
+                <div className="flex gap-2">
+                  <input value={reqInput} onChange={(e) => setReqInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const v = reqInput.trim().toLowerCase(); if (v && !specificRequirements.includes(v)) setSpecificRequirements((s) => [...s, v].slice(0, 5)); setReqInput(""); } }}
+                    placeholder="bijv. orgel, mengtafel…"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <button type="button" onClick={() => { const v = reqInput.trim().toLowerCase(); if (v && !specificRequirements.includes(v)) setSpecificRequirements((s) => [...s, v].slice(0, 5)); setReqInput(""); }}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Toevoegen</button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">De beheerder kan dit bij goedkeuren nog aanpassen.</p>
+            </div>
+
             {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
             <button
@@ -349,6 +389,14 @@ export default function NewVacancyPage() {
                 />
               </div>
             ))}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Minimumleeftijd <span className="text-gray-400">(optioneel)</span></label>
+              <input type="number" inputMode="numeric" min={1} max={120} value={minAge}
+                onChange={(e) => setMinAge(e.target.value)} placeholder="bijv. 18 voor bardienst of autorijden"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <p className="text-xs text-gray-400 mt-1">De beheerder kan dit later nog aanpassen.</p>
+            </div>
           </div>
 
           <button
