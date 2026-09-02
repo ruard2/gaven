@@ -24,6 +24,10 @@ export default function NewVacancy() {
 
   const [qualityWeights, setQualityWeights] = useState<Record<string, number>>({});
   const [sortedIds, setSortedIds] = useState<string[]>([]);
+  const [minAge, setMinAge] = useState("");
+  const [taskLevel, setTaskLevel] = useState("regulier");
+  const [specificRequirements, setSpecificRequirements] = useState<string[]>([]);
+  const [reqInput, setReqInput] = useState("");
   const [generatingWeights, setGeneratingWeights] = useState(false);
   const [weightsGenerated, setWeightsGenerated] = useState(false);
   const [error, setError] = useState("");
@@ -53,6 +57,8 @@ export default function NewVacancy() {
       const data = await res.json();
       setQualityWeights(data.weights);
       setSortedIds(Object.entries(data.weights as Record<string,number>).filter(([,w])=>w>0).sort(([,a],[,b])=>b-a).map(([id])=>id));
+      if (Array.isArray(data.specificRequirements)) setSpecificRequirements(data.specificRequirements);
+      if (data.taskLevel) setTaskLevel(data.taskLevel);
       setWeightsGenerated(true);
     } else {
       setError("Kwaliteiten genereren mislukt. Probeer opnieuw.");
@@ -76,6 +82,8 @@ export default function NewVacancy() {
         const data = await res.json();
         weights = data.weights;
         setQualityWeights(weights);
+        if (Array.isArray(data.specificRequirements)) setSpecificRequirements(data.specificRequirements);
+        if (data.taskLevel) setTaskLevel(data.taskLevel);
         setWeightsGenerated(true);
       }
       setGeneratingWeights(false);
@@ -86,7 +94,7 @@ export default function NewVacancy() {
     const res = await fetch("/api/admin/vacancies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, organizationId: orgId, qualityWeights: weights }),
+      body: JSON.stringify({ ...form, organizationId: orgId, qualityWeights: weights, minAge: minAge ? Number(minAge) : null, taskLevel, specificRequirements }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -191,6 +199,25 @@ export default function NewVacancy() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Minimumleeftijd <span className="text-gray-400">(optioneel)</span></label>
+                <input type="number" inputMode="numeric" min={1} max={120} value={minAge}
+                  onChange={(e) => setMinAge(e.target.value)} placeholder="bijv. 18"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Verantwoordelijkheidsniveau</label>
+                <select value={taskLevel} onChange={(e) => setTaskLevel(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="instap">Instap — dienend, laagdrempelig</option>
+                  <option value="regulier">Regulier — meedraaien</option>
+                  <option value="verantwoordelijk">Verantwoordelijk — vertrouwen/overzicht</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 -mt-2">AI vult leeftijd niet in; het niveau wordt bij ‘Genereer’ voorgesteld. Beide aanpasbaar.</p>
           </div>
 
           {/* Aanspreekpunt */}
@@ -278,6 +305,28 @@ export default function NewVacancy() {
                 </p>
               </div>
             )}
+
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900">Vereist specialisme</h3>
+              <p className="text-xs text-gray-500 mt-0.5 mb-2">Alleen wie dit met zoveel woorden noemt wordt gekoppeld (bijv. <em>orgel</em>). Meestal leeg laten.</p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {specificRequirements.map((r) => (
+                  <span key={r} className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                    {r}
+                    <button type="button" onClick={() => setSpecificRequirements((s) => s.filter((x) => x !== r))} className="text-amber-500 hover:text-amber-700" aria-label={`Verwijder ${r}`}>×</button>
+                  </span>
+                ))}
+                {specificRequirements.length === 0 && <span className="text-xs text-gray-400">Geen — toegankelijk voor iedereen.</span>}
+              </div>
+              <div className="flex gap-2">
+                <input value={reqInput} onChange={(e) => setReqInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const v = reqInput.trim().toLowerCase(); if (v && !specificRequirements.includes(v)) setSpecificRequirements((s) => [...s, v].slice(0, 5)); setReqInput(""); } }}
+                  placeholder="bijv. orgel, mengtafel…"
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button type="button" onClick={() => { const v = reqInput.trim().toLowerCase(); if (v && !specificRequirements.includes(v)) setSpecificRequirements((s) => [...s, v].slice(0, 5)); setReqInput(""); }}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Toevoegen</button>
+              </div>
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
