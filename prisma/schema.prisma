@@ -36,7 +36,6 @@ model Organization {
   vacancies        Vacancy[]
   participants     Participant[]
   applications     Application[]
-  inviteTokens     InviteToken[]
   coordinators     Coordinator[]
   communityToolsAccounts CommunityToolsAccount[]
 }
@@ -147,7 +146,6 @@ model Vacancy {
   updatedAt          DateTime @updatedAt
   qualityWeights     VacancyQualityWeight[]
   applications       Application[]
-  proposals          VacancyProposal[]
   memberships        VacancyMembership[]
   rosters            Roster[]
   pageSections       VacancyPageSection[]
@@ -206,16 +204,6 @@ model CoCoordinator {
   @@unique([vacancyId, coordinatorId])
 }
 
-model VacancyProposal {
-  id           String   @id @default(cuid())
-  vacancyId    String
-  vacancy      Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
-  proposedData String
-  editorName   String?
-  status       String   @default("pending")
-  createdAt    DateTime @default(now())
-}
-
 model VacancyMembership {
   id            String      @id @default(cuid())
   participantId String
@@ -226,16 +214,6 @@ model VacancyMembership {
   createdAt     DateTime    @default(now())
 
   @@unique([participantId, vacancyId])
-}
-
-model InviteToken {
-  id             String       @id @default(cuid())
-  token          String       @unique
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  label          String?
-  expiresAt      DateTime?
-  createdAt      DateTime     @default(now())
 }
 
 model VacancyQualityWeight {
