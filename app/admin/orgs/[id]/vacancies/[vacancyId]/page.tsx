@@ -99,7 +99,7 @@ export default function VacancyEdit() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Laden…</p></div>;
   if (!vacancy) return <div className="p-8 text-red-500">Niet gevonden</div>;
 
-  const activeQualities = sortedIds.map(id => [id, qualityWeights[id]] as [string, number]).filter(([, w]) => (w as number) > 0);
+  const activeQualities = sortedIds.map(id => [id, qualityWeights[id] ?? 0] as [string, number]);
 
   const FIELD_ROWS: { field: string; label: string; required?: boolean; textarea?: boolean }[] = [
     { field: "title", label: "Taaknaam", required: true },

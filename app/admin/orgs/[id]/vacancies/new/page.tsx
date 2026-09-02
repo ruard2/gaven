@@ -97,7 +97,7 @@ export default function NewVacancy() {
     }
   }
 
-  const activeQualities = sortedIds.map(id => [id, qualityWeights[id]] as [string, number]).filter(([, w]) => (w as number) > 0);
+  const activeQualities = sortedIds.map(id => [id, qualityWeights[id] ?? 0] as [string, number]);
 
   return (
     <div className="min-h-screen bg-gray-50">

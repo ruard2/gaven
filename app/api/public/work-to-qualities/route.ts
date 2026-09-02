@@ -41,7 +41,11 @@ Geef je antwoord als JSON:
   "familieBonus": "Woord & waarheid" | "Zorg & aanwezigheid" | "Richting & structuur" | null
 }
 
-Geef maximaal 10 kwaliteits-IDs terug die écht aansluiten bij deze werkachtergrond.
+BELANGRIJK — niet verzinnen:
+- Geef ALLEEN kwaliteiten die logisch volgen uit de genoemde achtergrond. Vul niet aan met algemene deugden.
+- Is de omschrijving vaag of nietszeggend ("weet niet", "van alles", "gewoon werk")? Geef dan wéinig of GEEN kwaliteiten terug.
+
+Geef maximaal 6 kwaliteits-IDs terug die écht aansluiten. Liever te weinig dan te veel.
 Gebruik alleen IDs uit de lijst hierboven.
 `;
 

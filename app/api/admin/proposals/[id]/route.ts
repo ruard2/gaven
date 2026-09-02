@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAdminFromCookies } from "@/lib/auth";
+import { extractSpecificRequirements } from "@/lib/specific";
 
 // PATCH — approve or reject a proposal
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await prisma.vacancy.update({ where: { id: proposal.vacancyId }, data: { status: "active" } });
     } else {
       const { title, shortDescription, whyValuable, concreteTasks, firstStep } = data as Record<string, string>;
+      const current = await prisma.vacancy.findUnique({ where: { id: proposal.vacancyId } });
+      const specificRequirements = await extractSpecificRequirements({
+        title: title ?? current?.title ?? "",
+        category: current?.category,
+        shortDescription: shortDescription ?? current?.shortDescription ?? "",
+        whyValuable: whyValuable ?? current?.whyValuable ?? undefined,
+        concreteTasks: concreteTasks ?? current?.concreteTasks ?? undefined,
+        longDescription: current?.longDescription ?? undefined,
+      });
       await prisma.vacancy.update({
         where: { id: proposal.vacancyId },
         data: {
@@ -32,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           ...(whyValuable !== undefined && { whyValuable }),
           ...(concreteTasks !== undefined && { concreteTasks }),
           ...(firstStep !== undefined && { firstStep }),
+          specificRequirements: JSON.stringify(specificRequirements),
         },
       });
     }

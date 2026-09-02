@@ -13,6 +13,9 @@ interface Match {
   score: number;
   stars: 1 | 2 | 3 | 4 | 5;
   matchedQualities: string[];
+  specificMatch?: boolean;
+  tooYoung?: boolean;
+  minAge?: number | null;
 }
 
 interface Org { name: string; primaryColor: string; }
@@ -81,9 +84,10 @@ export default function MatchesPage() {
     </div>
   );
 
-  // Splits in sterke matches en de rest
-  const strongMatches = matches.filter((m) => m.stars >= 3);
-  const otherMatches = matches.filter((m) => m.stars < 3);
+  // Splits in sterke matches en de rest. Te jonge matches horen nooit bij de
+  // sterke groep — ze worden getoond met een "vanaf X jaar"-melding.
+  const strongMatches = matches.filter((m) => m.stars >= 3 && !m.tooYoung);
+  const otherMatches = matches.filter((m) => m.stars < 3 || m.tooYoung);
 
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
@@ -170,6 +174,19 @@ function VacancyCard({
       </div>
 
       <h2 className="font-semibold text-gray-900 mt-1 mb-2">{m.title}</h2>
+
+      {m.specificMatch && !m.tooYoung && (
+        <div className="mb-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: org.primaryColor + "1a", color: org.primaryColor }}>
+          ★ Jij hebt precies de gevraagde gave
+        </div>
+      )}
+      {m.tooYoung && m.minAge != null && (
+        <div className="mb-2 inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+          Vanaf {m.minAge} jaar
+        </div>
+      )}
+
       <p className="text-sm text-gray-600 mb-3">{m.shortDescription}</p>
 
       {m.matchedQualities.length > 0 && (

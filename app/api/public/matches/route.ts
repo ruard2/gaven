@@ -27,10 +27,16 @@ export async function GET(req: NextRequest) {
   const manualQualities: string[] = JSON.parse(participant.profile.selectedQualityScores || "[]");
   const workQualities: string[] = JSON.parse(participant.profile.workExperienceScores || "[]");
 
+  const age = participant.birthYear
+    ? new Date().getFullYear() - participant.birthYear
+    : null;
+
   const profile = {
     qualities: [...new Set([...manualQualities, ...workQualities])],
     negatives: JSON.parse(participant.profile.negativePreferences || "[]"),
     familieBonus: familieBonus || null,
+    specificSkills: JSON.parse(participant.profile.specificSkills || "[]"),
+    age,
   };
 
   const matches = computeMatches(profile, vacancies);
@@ -45,6 +51,10 @@ export async function GET(req: NextRequest) {
       score: m.score,
       stars: m.stars,
       matchedQualities: m.matchedQualities,
+      specificMatch: m.specificMatch,
+      tooYoung: m.tooYoung,
+      minAge: m.minAge,
+      taskLevel: m.taskLevel,
     })),
   });
 }

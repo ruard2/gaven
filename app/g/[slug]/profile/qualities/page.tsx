@@ -33,14 +33,14 @@ export default function QualitiesPage() {
     <main className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-md mx-auto">
         <div className="flex items-center gap-2 mb-6">
-          {[1, 2, 3].map((i) => (
+          {[1, 2].map((i) => (
             <div key={i} className="h-1.5 flex-1 rounded-full"
-              style={{ backgroundColor: i <= 2 ? org.primaryColor : "#e5e7eb" }} />
+              style={{ backgroundColor: i <= 1 ? org.primaryColor : "#e5e7eb" }} />
           ))}
         </div>
 
         <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-gray-600 mb-4 block">← Terug</button>
-        <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>Stap 2 van 3</p>
+        <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>Stap 1 van 2</p>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Welke kwaliteiten herken jij in jezelf?</h1>
         <p className="text-sm text-gray-500 mb-5">Klik een categorie open en vink aan wat bij jou past.</p>
 

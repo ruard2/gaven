@@ -16,6 +16,7 @@ interface Vacancy {
   longDescription: string | null;
   firstStep: string | null;
   status: string;
+  minAge: number | null;
   qualityWeights: { qualityId: string; weight: number }[];
 }
 
@@ -30,6 +31,9 @@ export default function CoordinatorVacancyEdit() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [specificRequirements, setSpecificRequirements] = useState<string[]>([]);
+  const [reqInput, setReqInput] = useState("");
+  const [taskLevel, setTaskLevel] = useState("regulier");
 
   useEffect(() => {
     fetch(`/api/coordinator/vacancies/${id}`)
@@ -41,6 +45,8 @@ export default function CoordinatorVacancyEdit() {
         for (const qw of data.qualityWeights || []) weights[qw.qualityId] = qw.weight;
         setQualityWeights(weights);
         setSortedIds(Object.entries(weights).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).map(([id]) => id));
+        try { const r = JSON.parse(data.specificRequirements || "[]"); if (Array.isArray(r)) setSpecificRequirements(r); } catch {}
+        if (data.taskLevel) setTaskLevel(data.taskLevel);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -67,6 +73,8 @@ export default function CoordinatorVacancyEdit() {
       const data = await res.json();
       setQualityWeights(data.weights);
       setSortedIds(Object.entries(data.weights as Record<string, number>).filter(([, w]) => w > 0).sort(([, a], [, b]) => b - a).map(([id]) => id));
+      if (Array.isArray(data.specificRequirements)) setSpecificRequirements(data.specificRequirements);
+      if (data.taskLevel) setTaskLevel(data.taskLevel);
     }
     setGenerating(false);
   }
@@ -87,7 +95,10 @@ export default function CoordinatorVacancyEdit() {
         longDescription: vacancy.longDescription,
         firstStep: vacancy.firstStep,
         status: vacancy.status,
+        minAge: vacancy.minAge,
         qualityWeights,
+        specificRequirements,
+        taskLevel,
       }),
     });
     if (!res.ok) {
@@ -109,7 +120,7 @@ export default function CoordinatorVacancyEdit() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Laden…</p></div>;
   if (!vacancy) return <div className="p-8 text-red-500">{error || "Niet gevonden"}</div>;
 
-  const activeQualities = sortedIds.map((id) => [id, qualityWeights[id]] as [string, number]).filter(([, w]) => (w as number) > 0);
+  const activeQualities = sortedIds.map((id) => [id, qualityWeights[id] ?? 0] as [string, number]);
 
   const FIELD_ROWS: { field: string; label: string; required?: boolean; textarea?: boolean }[] = [
     { field: "title", label: "Taaknaam", required: true },
@@ -161,6 +172,22 @@ export default function CoordinatorVacancyEdit() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Minimumleeftijd <span className="text-gray-400">(optioneel)</span></label>
+            <input type="number" inputMode="numeric" min={1} max={120} value={vacancy.minAge ?? ""}
+              onChange={(e) => setVacancy((v) => v ? { ...v, minAge: e.target.value ? Number(e.target.value) : null } : v)}
+              placeholder="bijv. 18"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Verantwoordelijkheidsniveau</label>
+            <select value={taskLevel} onChange={(e) => setTaskLevel(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="instap">Instap — dienend, laagdrempelig</option>
+              <option value="regulier">Regulier — meedraaien in een team</option>
+              <option value="verantwoordelijk">Verantwoordelijk — commitment/overzicht/vertrouwen</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select value={vacancy.status} onChange={(e) => update("status", e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -206,6 +233,36 @@ export default function CoordinatorVacancyEdit() {
               <p className="text-sm text-gray-400">Klik op 'Herbereken' om kwaliteiten te genereren op basis van je omschrijving.</p>
             </div>
           )}
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">Vereist specialisme</h3>
+            <p className="text-xs text-gray-500 mt-0.5 mb-2">
+              Alleen vrijwilligers die dit met zoveel woorden noemen worden gekoppeld (bijv. <em>orgel</em>). Meestal leeg laten.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {specificRequirements.map((r) => (
+                <span key={r} className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                  {r}
+                  <button type="button" onClick={() => setSpecificRequirements((s) => s.filter((x) => x !== r))}
+                    className="text-amber-500 hover:text-amber-700" aria-label={`Verwijder ${r}`}>×</button>
+                </span>
+              ))}
+              {specificRequirements.length === 0 && (
+                <span className="text-xs text-gray-400">Geen — toegankelijk voor iedereen.</span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input value={reqInput} onChange={(e) => setReqInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); const v = reqInput.trim().toLowerCase(); if (v && !specificRequirements.includes(v)) setSpecificRequirements((s) => [...s, v].slice(0, 5)); setReqInput(""); }
+                }}
+                placeholder="bijv. orgel, mengtafel…"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <button type="button"
+                onClick={() => { const v = reqInput.trim().toLowerCase(); if (v && !specificRequirements.includes(v)) setSpecificRequirements((s) => [...s, v].slice(0, 5)); setReqInput(""); }}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Toevoegen</button>
+            </div>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

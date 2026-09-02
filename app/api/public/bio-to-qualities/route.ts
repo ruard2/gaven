@@ -37,7 +37,12 @@ Geef je antwoord als JSON:
   "familieBonus": "Woord & waarheid" | "Zorg & aanwezigheid" | "Richting & structuur"
 }
 
-Geef maximaal 12 kwaliteits-IDs terug. Kies alleen kwaliteiten die écht passen bij de beschrijving.
+BELANGRIJK — niet verzinnen:
+- Geef ALLEEN kwaliteiten die concreet uit de beschrijving blijken. Vul niet aan met wat "ook wel zou kunnen".
+- Is de beschrijving vaag, kort, of zegt de persoon eigenlijk niets concreets (bijv. "weet niet", "zie wel", "geen idee")? Geef dan wéinig of GEEN kwaliteiten terug (desnoods een lege lijst). Een leeg profiel is beter dan een verzonnen profiel.
+- Een negatieve zin ("ik wil niet...") levert géén kwaliteiten op.
+
+Geef maximaal 6 kwaliteits-IDs terug, alleen die écht passen. Liever te weinig dan te veel.
 Gebruik alleen IDs uit de lijst hierboven.
 `;
 

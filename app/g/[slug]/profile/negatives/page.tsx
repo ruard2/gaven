@@ -27,15 +27,32 @@ export default function NegativesPage() {
     setLoading(true);
 
     const bio = sessionStorage.getItem(`bio_${slug}`) || "";
+    const workbio = sessionStorage.getItem(`workbio_${slug}`) || "";
     const manualQualities: string[] = JSON.parse(sessionStorage.getItem(`qualities_${slug}`) || "[]");
-    // Kwaliteiten afgeleid uit werkervaring (AI, stap 1)
-    const workQualities: string[] = JSON.parse(sessionStorage.getItem(`workQualities_${slug}`) || "[]");
-    // familieBonus kan al gezet zijn door werk-AI in stap 1
-    const existingFamilieBonus = sessionStorage.getItem(`familiebonus_${slug}`) || null;
+
+    let familieBonus: string | null = null;
+
+    // Werk/studie/situatie → AI → kwaliteiten + familie
+    let workQualities: string[] = [];
+    if (workbio.trim().length > 3) {
+      try {
+        const workRes = await fetch("/api/public/work-to-qualities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ work: workbio }),
+        });
+        if (workRes.ok) {
+          const workData = await workRes.json();
+          workQualities = workData.qualityIds || [];
+          if (workData.familieBonus) familieBonus = workData.familieBonus;
+        }
+      } catch (e) {
+        console.error("Work-to-qualities mislukt:", e);
+      }
+    }
 
     // Bio → AI → extra kwaliteiten + familie
     let bioQualities: string[] = [];
-    let familieBonus: string | null = existingFamilieBonus;
     if (bio.trim().length > 5) {
       try {
         const bioRes = await fetch("/api/public/bio-to-qualities", {
@@ -71,6 +88,8 @@ export default function NegativesPage() {
         workExperience: workQualities,
         qualities: allQualities,
         negatives: selected,
+        bio,
+        workbio,
       }),
     });
 
@@ -90,12 +109,11 @@ export default function NegativesPage() {
           {[1, 2].map((i) => (
             <div key={i} className="h-1.5 flex-1 rounded-full" style={{ backgroundColor: org.primaryColor }} />
           ))}
-          <div className="h-1.5 flex-1 rounded-full bg-gray-200" />
         </div>
 
         <button onClick={() => router.back()} className="text-sm text-gray-400 hover:text-gray-600 mb-4 block">← Terug</button>
         <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: org.primaryColor }}>
-          Stap 3 van 3
+          Stap 2 van 2
         </p>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Wat past minder bij jou?</h1>
         <p className="text-sm text-gray-500 mb-5">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAdminFromCookies } from "@/lib/auth";
+import { sanitizeRequirements } from "@/lib/specific";
 
 async function getVacancyForAdmin(id: string, adminId: string) {
   return prisma.vacancy.findFirst({
@@ -27,12 +28,34 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!vacancy) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const { qualityWeights, ...rest } = body;
+  const { qualityWeights, minAge, specificRequirements, taskLevel, ...rest } = body;
+  const levelData = taskLevel !== undefined
+    ? { taskLevel: taskLevel === "instap" || taskLevel === "verantwoordelijk" ? taskLevel : "regulier" }
+    : {};
+  const minAgeData = minAge !== undefined
+    ? { minAge: Number.isInteger(minAge) && minAge > 0 && minAge < 120 ? minAge : null }
+    : {};
+
+  // Blokkeer een update die alle kwaliteiten op 0 zet (vacature wordt onvindbaar).
+  if (qualityWeights) {
+    const positive = Object.values(qualityWeights as Record<string, number>).filter((w) => Number(w) > 0);
+    if (positive.length === 0) {
+      return NextResponse.json({ error: "Geef minstens één kwaliteit een gewicht boven 0 — anders vindt niemand deze vacature." }, { status: 400 });
+    }
+  }
+
+  // Specifieke eisen: door de admin (bij)gestelde waarde opslaan; geen AI-call.
+  const specificData = specificRequirements !== undefined
+    ? { specificRequirements: JSON.stringify(sanitizeRequirements(specificRequirements)) }
+    : {};
 
   const updated = await prisma.vacancy.update({
     where: { id },
     data: {
       ...rest,
+      ...minAgeData,
+      ...levelData,
+      ...specificData,
       ...(qualityWeights
         ? {
             qualityWeights: {

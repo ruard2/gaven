@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { sanitizeRequirements } from "@/lib/specific";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -14,7 +15,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   }
 
   const body = await req.json();
-  const { editorName, title, category, shortDescription, whyValuable, concreteTasks, firstStep, qualityWeights } = body;
+  const { editorName, title, category, shortDescription, whyValuable, concreteTasks, firstStep, qualityWeights, minAge, specificRequirements, taskLevel } = body;
+  const minAgeValue = Number.isInteger(minAge) && minAge > 0 && minAge < 120 ? minAge : null;
+  const cleanRequirements = sanitizeRequirements(specificRequirements);
+  const level = taskLevel === "instap" || taskLevel === "verantwoordelijk" ? taskLevel : "regulier";
 
   if (!title?.trim() || !shortDescription?.trim()) {
     return NextResponse.json({ error: "Taaknaam en omschrijving zijn verplicht" }, { status: 400 });
@@ -37,6 +41,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       contactPersonName: editorName?.trim() || "Onbekend",
       contactPersonEmail: invite.organization.contactEmail,
       status: "pending",
+      specificRequirements: JSON.stringify(cleanRequirements),
+      minAge: minAgeValue,
+      taskLevel: level,
       qualityWeights: { create: weightEntries },
     },
   });

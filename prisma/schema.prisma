@@ -135,6 +135,14 @@ model Vacancy {
   contactPersonName  String
   contactPersonEmail String
   status             String   @default("active")
+  // JSON-array van concrete, specifieke eisen die de grove taxonomie niet dekt
+  // (bijv. ["orgel"] voor een organist). Leeg = generieke taak, geen harde filter.
+  specificRequirements String @default("[]")
+  // Optionele minimumleeftijd (bijv. 18 voor bardienst/chauffeur, 16 voor leiding).
+  minAge             Int?
+  // Verantwoordelijkheidsniveau: "instap" | "regulier" | "verantwoordelijk".
+  // Stuurt de basis-toegankelijkheid en de weging voor jongeren.
+  taskLevel          String   @default("regulier")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   qualityWeights     VacancyQualityWeight[]
@@ -247,6 +255,7 @@ model Participant {
   name           String
   email          String
   phone          String?
+  birthYear      Int?
   createdAt      DateTime @default(now())
   profile        ParticipantProfile?
   applications   Application[]
@@ -260,6 +269,11 @@ model ParticipantProfile {
   workExperienceScores String   @default("[]")
   selectedQualityScores String  @default("[]")
   negativePreferences  String   @default("[]")
+  // Ruwe vrije tekst bewaren (ging voorheen verloren) + concrete specifieke
+  // vaardigheden die eruit afgeleid zijn (bijv. ["orgel","boekhouden"]).
+  bio                  String?
+  workbio              String?
+  specificSkills       String   @default("[]")
   completedAt          DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
