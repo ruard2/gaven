@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { send } from "@/lib/email";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 // GET /api/public/memberships?participantId=xxx
 export async function GET(req: NextRequest) {
@@ -17,6 +18,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/public/memberships — add participant to one or more vacancies
 export async function POST(req: NextRequest) {
+  if (!rateLimit(getIp(req), 10)) {
+    return NextResponse.json({ error: "Te veel verzoeken, probeer het zo weer." }, { status: 429 });
+  }
   const { participantId, vacancyIds } = await req.json();
 
   if (!participantId || !Array.isArray(vacancyIds) || vacancyIds.length === 0) {

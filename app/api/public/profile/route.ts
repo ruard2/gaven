@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { extractSpecificSkills } from "@/lib/specific";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit(getIp(req), 10)) {
+    return NextResponse.json({ error: "Te veel verzoeken, probeer het zo weer." }, { status: 429 });
+  }
   const { participantId, workExperience, qualities, negatives, bio, workbio } = await req.json();
 
   if (!participantId) {

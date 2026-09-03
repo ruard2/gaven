@@ -10,9 +10,8 @@ export function generateSlug(name: string): string {
     .substring(0, 60);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ensureVacancySlug(
-  prisma: any,
+  prisma: any, // eslint-disable-line @typescript-eslint/no-explicit-any -- prisma client of transactie-client
   vacancyId: string,
   title: string,
   organizationId: string

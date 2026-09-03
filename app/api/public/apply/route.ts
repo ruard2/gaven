@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendApplicationEmail } from "@/lib/email";
 import { QUALITY_CATEGORIES } from "@/lib/qualities";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit(getIp(req), 10)) {
+    return NextResponse.json({ error: "Te veel verzoeken, probeer het zo weer." }, { status: 429 });
+  }
   const body = await req.json();
   const { participantId, vacancyId, responseType, message, firstStepChoice, availabilityNote, matchedQualities } = body;
 

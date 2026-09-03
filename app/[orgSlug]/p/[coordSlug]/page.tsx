@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 interface DocumentMeta { id: string; filename: string; mimeType: string; size: number; }
 interface Section { id: string; type: string; title: string; content: string | null; url: string | null; document: DocumentMeta | null; }
@@ -100,13 +101,13 @@ export default function CoordinatorPage() {
           )}
           <span className="font-semibold text-gray-900">{org.name}</span>
           {isOwner && (
-            <a href="/coordinator/dashboard"
+            <Link href="/coordinator/dashboard"
               className="ml-auto flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
               Naar dashboard
-            </a>
+            </Link>
           )}
         </div>
       </header>
