@@ -17,11 +17,23 @@ export default function CoordinatorVacancyNew() {
   const [reqInput, setReqInput] = useState("");
   const [qualityWeights, setQualityWeights] = useState<Record<string, number>>({});
   const [sortedIds, setSortedIds] = useState<string[]>([]);
+  const [addQualityId, setAddQualityId] = useState("");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
   const effectiveCategory = form.category === "Anders…" ? customCategory.trim() : form.category;
+
+  function addQuality(id: string) {
+    if (!id || sortedIds.includes(id)) return;
+    setSortedIds((s) => [...s, id]);
+    setQualityWeights((prev) => ({ ...prev, [id]: prev[id] || 50 }));
+    setAddQualityId("");
+  }
+  function removeQuality(id: string) {
+    setSortedIds((s) => s.filter((x) => x !== id));
+    setQualityWeights((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  }
 
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -96,6 +108,13 @@ export default function CoordinatorVacancyNew() {
       </header>
 
       <main className="max-w-2xl mx-auto px-6 py-7 pb-16 space-y-5">
+        <div className="flex items-start gap-3 bg-blue-50/70 border border-blue-100 rounded-xl px-4 py-3">
+          <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <p className="text-sm text-blue-900/80 leading-relaxed">
+            Beschrijf de taak in het kort. Op basis daarvan bepaalt de app welke <strong>gaven</strong> belangrijk zijn, en koppelt vrijwilligers wiens profiel daarbij past. Je kunt de gaven daarna zelf bijstellen.
+          </p>
+        </div>
+
         {/* Taakinformatie */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center gap-2.5 pb-1">
@@ -174,6 +193,12 @@ export default function CoordinatorVacancyNew() {
             </button>
           </div>
 
+          {activeQualities.length > 0 && (
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4">
+              Hoe hoger het gewicht, hoe zwaarder deze gaaf meetelt bij het matchen. Sleep om bij te stellen, verwijder wat niet past, of voeg er zelf één toe.
+            </p>
+          )}
+
           {activeQualities.length > 0 ? (
             <div className="space-y-3.5">
               {activeQualities.map(([qid, weight]) => {
@@ -181,9 +206,13 @@ export default function CoordinatorVacancyNew() {
                 const wc = weight >= 80 ? "#16a34a" : weight >= 50 ? "#2563eb" : weight >= 20 ? "#d97706" : "#94a3b8";
                 return (
                   <div key={qid} className="space-y-1">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-sm text-gray-700">{label}</span>
-                      <span className="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded" style={{ color: wc, backgroundColor: wc + "18" }}>{weight}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs font-bold tabular-nums px-1.5 py-0.5 rounded" style={{ color: wc, backgroundColor: wc + "18" }}>{weight}</span>
+                        <button type="button" onClick={() => removeQuality(qid)} title="Verwijderen"
+                          className="text-gray-300 hover:text-red-500 text-base leading-none transition-colors">×</button>
+                      </div>
                     </div>
                     <input type="range" min={0} max={100} value={weight}
                       onChange={(e) => setQualityWeights((prev) => ({ ...prev, [qid]: Number(e.target.value) }))}
@@ -201,6 +230,27 @@ export default function CoordinatorVacancyNew() {
               <p className="text-xs text-gray-400 mt-1">Daarna kun je alles handmatig bijstellen.</p>
             </div>
           )}
+
+          {/* Zelf een gaaf toevoegen */}
+          <div className="mt-4 flex gap-2">
+            <select value={addQualityId} onChange={(e) => setAddQualityId(e.target.value)}
+              className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500">
+              <option value="">+ Zelf een gaaf toevoegen…</option>
+              {QUALITY_CATEGORIES.map((cat) => {
+                const opts = cat.qualities.filter((q) => !sortedIds.includes(q.id));
+                if (opts.length === 0) return null;
+                return (
+                  <optgroup key={cat.id} label={cat.label}>
+                    {opts.map((q) => <option key={q.id} value={q.id}>{q.label}</option>)}
+                  </optgroup>
+                );
+              })}
+            </select>
+            <button type="button" onClick={() => addQuality(addQualityId)} disabled={!addQualityId}
+              className="px-4 py-2 text-sm font-semibold border border-violet-300 text-violet-700 rounded-lg hover:bg-violet-50 disabled:opacity-40 transition-colors whitespace-nowrap">
+              Toevoegen
+            </button>
+          </div>
 
           {/* Specifieke eisen: harde filter op een concreet specialisme */}
           <div className="mt-5 pt-5 border-t border-gray-100">
