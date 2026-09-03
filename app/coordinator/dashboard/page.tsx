@@ -8,6 +8,7 @@ interface Member { id: string; description?: string | null; createdAt: string; p
 interface Vacancy {
   id: string; title: string; category: string; shortDescription: string;
   status: string; whyValuable?: string | null; concreteTasks?: string | null; firstStep?: string | null;
+  minAge?: number | null; taskLevel?: string | null; specificRequirements?: string | null;
   applications: Application[]; memberships: Member[];
 }
 interface Coordinator { id: string; name: string; email: string; roleTitle: string | null; organization: { name: string; slug: string; primaryColor: string }; }
@@ -37,8 +38,7 @@ export default function CoordinatorDashboard() {
   // Vacatures blok — editingId toggelt de aanmeldingen-uitklap per vacature
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Taken beheren blok
-  const [expandedBeheer, setExpandedBeheer] = useState<string | null>(null);
+  // Beheren-uitklap (vrijwilligers, rooster, aanmeldingen) — gedeeld met editingId
   const [addMemberForm, setAddMemberForm] = useState<Record<string, { name: string; email: string }>>({});
   const [addingMember, setAddingMember] = useState<string | null>(null);
   const [addRosterEntryForm, setAddRosterEntryForm] = useState<Record<string, { name: string; email: string; date: string; role: string }>>({});
@@ -351,282 +351,270 @@ export default function CoordinatorDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: coord?.organization.primaryColor }} />
-              <span className="text-sm font-semibold text-gray-700">{coord?.organization.name}</span>
+      <header className="sticky top-0 z-20 bg-white/85 backdrop-blur border-b border-gray-200">
+        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+              style={{ backgroundColor: coord?.organization.primaryColor || "#2563eb" }}>
+              {coord?.organization.name?.[0]?.toUpperCase() || "·"}
             </div>
-            <button onClick={() => openSettings("gegevens")}
-              className="group flex items-center gap-1.5 text-left mt-0 rounded hover:bg-gray-50 -mx-1 px-1 py-0.5 transition-colors"
-              title="Instellingen — naam, e-mail, rol en overdracht">
-              <span className="text-xs text-gray-400 group-hover:text-gray-600">Coördinator: {coord?.name}</span>
-              <svg className="w-3 h-3 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-            <button onClick={() => openSettings("rol")}
-              className="group flex items-center gap-1.5 text-left rounded hover:bg-gray-50 -mx-1 px-1 py-0.5 transition-colors"
-              title="Wijzig je coördinatierol">
-              <span className="text-xs text-gray-400 group-hover:text-gray-600">
-                Coördinator van: {coord?.roleTitle || <span className="text-blue-500 underline">rol instellen</span>}
-              </span>
-              <svg className="w-3 h-3 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
+            <div className="min-w-0">
+              <div className="font-semibold text-[14.5px] tracking-tight text-gray-900 truncate leading-tight">{coord?.organization.name}</div>
+              <div className="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap leading-tight">
+                <button onClick={() => openSettings("gegevens")} className="hover:text-gray-600 transition-colors" title="Naam, e-mail en overdracht">
+                  Coördinator: {coord?.name}
+                </button>
+                <span className="text-gray-300">·</span>
+                <button onClick={() => openSettings("rol")} className="hover:text-gray-600 transition-colors" title="Wijzig je coördinatierol">
+                  {coord?.roleTitle || <span className="text-blue-500">rol instellen</span>}
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => router.push("/coordinator/vacatures/nieuw")} className="text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => router.push("/coordinator/vacatures/nieuw")}
+              className="text-[13px] font-semibold bg-blue-600 text-white hover:bg-blue-700 px-3.5 py-2 rounded-lg transition-colors">
               + Nieuwe vacature
             </button>
-            <button onClick={openHomepage} className="text-xs text-purple-700 hover:text-purple-900 px-3 py-1.5 border border-purple-200 bg-purple-50 rounded-lg">
-              🏠 Homepage
+            <button onClick={openHomepage}
+              className="text-[13px] font-semibold text-purple-700 border border-purple-200 bg-purple-50/70 hover:bg-purple-100 px-3 py-2 rounded-lg transition-colors">
+              Homepage
             </button>
-            <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">Uitloggen</button>
+            <button onClick={logout} className="text-[13px] text-gray-400 hover:text-gray-600 px-1">Uitloggen</button>
           </div>
         </div>
       </header>
 
       {msg && <div className="bg-green-50 border-b border-green-200 px-6 py-2 text-center text-sm text-green-700">{msg}</div>}
 
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-10">
+      <main className="max-w-3xl mx-auto px-6 py-7 pb-16">
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Actieve vacatures", value: activeVacancies.length },
-            { label: "Aanmeldingen", value: vacancies.reduce((s, v) => s + v.applications.length, 0) },
-            { label: "Huidige vrijwilligers", value: vacancies.reduce((s, v) => s + v.memberships.length, 0) },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+            {
+              label: "Actieve vacatures", value: activeVacancies.length,
+              sub: inactiveVacancies.length > 0 ? `${inactiveVacancies.length} non-actief` : "alles actief",
+              tint: "bg-blue-50 text-blue-600",
+              icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+            },
+            {
+              label: "Aanmeldingen", value: vacancies.reduce((s, v) => s + v.applications.length, 0),
+              sub: "over al je taken",
+              tint: "bg-green-50 text-green-600",
+              icon: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+            },
+            {
+              label: "Vrijwilligers", value: vacancies.reduce((s, v) => s + v.memberships.length, 0),
+              sub: "actief in je taken",
+              tint: "bg-purple-50 text-purple-600",
+              icon: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z",
+            },
+          ].map(({ label, value, sub, tint, icon }) => (
+            <div key={label} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2.5 ${tint}`}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d={icon} /></svg>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums leading-none">{value}</p>
+              <p className="text-[13px] text-gray-600 mt-1.5">{label}</p>
+              <p className="text-[11.5px] text-gray-400 mt-0.5">{sub}</p>
             </div>
           ))}
         </div>
 
-        {/* ── Blok 1: Vacatures ── */}
-        <section>
-          <h2 className="text-base font-bold text-gray-800 mb-4">Vacatures</h2>
-          {vacancies.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
-              <p className="mb-4">Nog geen vacatures. Maak er een aan om vrijwilligers te werven.</p>
-              <button onClick={() => router.push("/coordinator/vacatures/nieuw")} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">+ Nieuwe vacature</button>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {[
-                { label: "Actieve vacatures", items: activeVacancies },
-                { label: "Non-actieve vacatures", items: inactiveVacancies },
-              ].filter(({ items }) => items.length > 0).map(({ label, items }) => (
-                <div key={label}>
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{label}</h3>
-                  <div className="space-y-3">
-                    {items.map((v) => (
-                      <div key={v.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="p-4 flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-gray-900">{v.title}</span>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{v.category}</span>
-                              <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                                style={{ color: STATUS_LABELS[v.status]?.color || "#374151", backgroundColor: (STATUS_LABELS[v.status]?.color || "#374151") + "18" }}>
-                                {STATUS_LABELS[v.status]?.label || v.status}
-                              </span>
+        {/* ── Vacatures (aanmeldingen, vrijwilligers & rooster in één kaart) ── */}
+        <div className="flex items-baseline justify-between mt-9 mb-3.5">
+          <h2 className="text-base font-bold text-gray-900 tracking-tight">Vacatures</h2>
+          {vacancies.length > 0 && (
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              {activeVacancies.length} actief · {inactiveVacancies.length} non-actief
+            </span>
+          )}
+        </div>
+
+        {vacancies.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+            <p className="text-sm text-gray-500 mb-4">Nog geen vacatures. Maak er een aan om vrijwilligers te werven.</p>
+            <button onClick={() => router.push("/coordinator/vacatures/nieuw")} className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">+ Nieuwe vacature</button>
+          </div>
+        ) : (
+          <div className="space-y-7">
+            {[
+              { label: "Actieve vacatures", items: activeVacancies },
+              { label: "Non-actieve vacatures", items: inactiveVacancies },
+            ].filter(({ items }) => items.length > 0).map(({ label, items }) => (
+              <div key={label}>
+                <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">{label}</h3>
+                <div className="space-y-3">
+                  {items.map((v) => {
+                    const isOpen = editingId === v.id;
+                    const roster = rosters.find((r) => r.vacancyId === v.id) || null;
+                    const memberForm = addMemberForm[v.id] || { name: "", email: "" };
+                    const entryForm = addRosterEntryForm[v.id] || { name: "", email: "", date: "", role: "" };
+                    let reqs: string[] = [];
+                    try { const p = JSON.parse(v.specificRequirements || "[]"); if (Array.isArray(p)) reqs = p; } catch {}
+                    const st = STATUS_LABELS[v.status];
+                    return (
+                      <div key={v.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-gray-900 tracking-tight">{v.title}</span>
+                                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2 py-0.5 rounded-full"
+                                  style={{ color: st?.color || "#374151", backgroundColor: (st?.color || "#374151") + "18" }}>
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st?.color || "#374151" }} />
+                                  {st?.label || v.status}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-500 mt-1.5">{v.shortDescription}</p>
+                              <div className="flex gap-1.5 flex-wrap mt-2.5">
+                                <span className="text-[11.5px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{v.category}</span>
+                                {reqs.map((r) => (
+                                  <span key={r} className="text-[11.5px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">vereist: {r}</span>
+                                ))}
+                                {v.minAge ? <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">vanaf {v.minAge} jaar</span> : null}
+                              </div>
                             </div>
-                            <p className="text-sm text-gray-500 mt-1">{v.shortDescription}</p>
+                            <div className="flex gap-2 flex-shrink-0">
+                              <button onClick={() => setEditingId(isOpen ? null : v.id)}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400 px-2.5 py-1.5 rounded-lg transition-colors">
+                                Beheren
+                                <svg className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                              </button>
+                              <button onClick={() => router.push(`/coordinator/vacatures/${v.id}`)}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2.5 py-1.5 rounded-lg transition-colors">
+                                Bewerken
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex gap-2 flex-shrink-0">
-                            <button onClick={() => setEditingId(editingId === v.id ? null : v.id)}
-                              className="text-xs text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-400 px-2.5 py-1.5 rounded-lg font-medium">
-                              Aanmeldingen ({v.applications.length})
-                            </button>
-                            <button onClick={() => router.push(`/coordinator/vacatures/${v.id}`)}
-                              className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2.5 py-1.5 rounded-lg font-medium">
-                              Bewerken
-                            </button>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[12px] text-gray-400">
+                            <span>{v.applications.length} aanmelding{v.applications.length !== 1 ? "en" : ""}</span>
+                            <span>{v.memberships.length} vrijwilliger{v.memberships.length !== 1 ? "s" : ""}</span>
+                            {roster ? <span>rooster: {roster.entries.length} {roster.entries.length === 1 ? "persoon" : "personen"}</span> : null}
                           </div>
                         </div>
 
-                        {editingId === v.id && (
-                          <div className="border-t border-gray-100 p-4 bg-gray-50">
-                            {v.applications.length === 0 ? (
-                              <p className="text-sm text-gray-400 text-center py-2">Nog geen aanmeldingen voor deze vacature.</p>
-                            ) : (
-                              <div className="space-y-2">
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Aanmeldingen</p>
-                                {v.applications.map((a) => (
-                                  <div key={a.id} className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div>
-                                        <span className="font-medium text-gray-900 text-sm">{a.participant.name}</span>
-                                        <div className="text-xs text-gray-400">{a.participant.email}{a.participant.phone && ` · ${a.participant.phone}`}</div>
+                        {isOpen && (
+                          <div className="border-t border-gray-100 bg-gray-50/70 p-4 space-y-4">
+                            {/* Aanmeldingen */}
+                            <div>
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Aanmeldingen</p>
+                              {v.applications.length === 0 ? (
+                                <p className="text-sm text-gray-400">Nog geen aanmeldingen.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {v.applications.map((a) => (
+                                    <div key={a.id} className="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                                      <div className="flex items-center justify-between mb-2 gap-3">
+                                        <div className="min-w-0">
+                                          <span className="font-medium text-gray-900 text-sm">{a.participant.name}</span>
+                                          <div className="text-xs text-gray-400 truncate">{a.participant.email}{a.participant.phone && ` · ${a.participant.phone}`}</div>
+                                        </div>
+                                        <span className="text-xs text-gray-400 flex-shrink-0">{RESPONSE_LABELS[a.responseType] || a.responseType}</span>
                                       </div>
-                                      <span className="text-xs text-gray-400">{RESPONSE_LABELS[a.responseType] || a.responseType}</span>
+                                      <CoordContactButtons name={a.participant.name} email={a.participant.email} phone={a.participant.phone ?? null} vacancyTitle={v.title} />
                                     </div>
-                                    <CoordContactButtons
-                                      name={a.participant.name}
-                                      email={a.participant.email}
-                                      phone={a.participant.phone ?? null}
-                                      vacancyTitle={v.title}
-                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Vrijwilligers + Rooster */}
+                            <div className="grid md:grid-cols-2 gap-3">
+                              <div className="bg-white border border-gray-200 rounded-xl p-3.5">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Vrijwilligers</p>
+                                  <button onClick={() => openInvite(v)} className="text-xs font-semibold text-blue-600 hover:text-blue-800 border border-blue-200 px-2 py-1 rounded-lg">+ Uitnodigen</button>
+                                </div>
+                                {v.memberships.length === 0 && <p className="text-sm text-gray-400">Nog geen vrijwilligers.</p>}
+                                <div className="divide-y divide-gray-100">
+                                  {v.memberships.map((m) => (
+                                    <div key={m.id} className="flex items-center justify-between py-1.5 gap-2">
+                                      <div className="min-w-0">
+                                        <span className="text-sm font-medium text-gray-800">{m.participant.name}</span>
+                                        <a href={`mailto:${m.participant.email}`} className="block text-xs text-blue-500 hover:underline truncate">{m.participant.email}</a>
+                                      </div>
+                                      <button onClick={() => removeMember(v.id, m.id)} className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">Verwijderen</button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-2">
+                                  <input value={memberForm.name} placeholder="Naam"
+                                    onChange={(e) => setAddMemberForm((prev) => ({ ...prev, [v.id]: { ...memberForm, name: e.target.value } }))}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                  <div className="flex gap-2">
+                                    <input value={memberForm.email} placeholder="E-mail" type="email"
+                                      onChange={(e) => setAddMemberForm((prev) => ({ ...prev, [v.id]: { ...memberForm, email: e.target.value } }))}
+                                      className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <button onClick={() => addMember(v.id)} disabled={addingMember === v.id || !memberForm.name || !memberForm.email}
+                                      className="text-sm font-semibold px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+                                      {addingMember === v.id ? "…" : "Toevoegen"}
+                                    </button>
                                   </div>
-                                ))}
+                                </div>
                               </div>
-                            )}
+
+                              <div className="bg-white border border-gray-200 rounded-xl p-3.5">
+                                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Rooster</p>
+                                {!roster ? (
+                                  <div className="text-center py-3">
+                                    <p className="text-sm text-gray-400 mb-3">Nog geen rooster.</p>
+                                    <button onClick={() => createRoster(v.id, `Rooster ${v.title}`)} disabled={creatingRoster === v.id}
+                                      className="text-sm font-semibold px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:border-blue-400 disabled:opacity-50">
+                                      {creatingRoster === v.id ? "Aanmaken…" : "Rooster aanmaken"}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="divide-y divide-gray-100">
+                                      {roster.entries.length === 0 && <p className="text-sm text-gray-400 py-1">Nog geen personen.</p>}
+                                      {roster.entries.map((e) => (
+                                        <div key={e.id} className="flex items-center justify-between gap-2 py-1.5">
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            {e.date && <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded flex-shrink-0 tabular-nums">{new Date(e.date).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}</span>}
+                                            <div className="min-w-0">
+                                              <span className="text-sm text-gray-800">{e.name}</span>
+                                              {e.role && <span className="text-xs text-gray-400 ml-2">{e.role}</span>}
+                                            </div>
+                                          </div>
+                                          <button onClick={() => deleteRosterEntry(roster.id, e.id)} className="text-sm text-red-400 hover:text-red-600 flex-shrink-0">×</button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="mt-2.5 pt-2.5 border-t border-gray-100 grid grid-cols-2 gap-2">
+                                      <input value={entryForm.name} placeholder="Naam *"
+                                        onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, name: e.target.value } }))}
+                                        className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                      <input value={entryForm.role} placeholder="Rol / dienst"
+                                        onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, role: e.target.value } }))}
+                                        className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                      <input type="date" value={entryForm.date}
+                                        onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, date: e.target.value } }))}
+                                        className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                      <input value={entryForm.email} placeholder="E-mail (optie)" type="email"
+                                        onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, email: e.target.value } }))}
+                                        className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    </div>
+                                    <button onClick={() => addRosterEntry(roster.id, v.id)} disabled={addingRosterEntry === v.id || !entryForm.name}
+                                      className="w-full mt-2 text-sm font-semibold py-2 border border-gray-300 rounded-lg text-gray-700 hover:border-blue-400 disabled:opacity-50">
+                                      {addingRosterEntry === v.id ? "Toevoegen…" : "+ Rij toevoegen"}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── Blok 2: Taken beheren ── */}
-        {vacancies.length > 0 && (
-          <section>
-            <h2 className="text-base font-bold text-gray-800 mb-4">Taken beheren</h2>
-            <div className="space-y-3">
-              {vacancies.map((v) => {
-                const isOpen = expandedBeheer === v.id;
-                const roster = rosters.find((r) => r.vacancyId === v.id) || null;
-                const memberForm = addMemberForm[v.id] || { name: "", email: "" };
-                const entryForm = addRosterEntryForm[v.id] || { name: "", email: "", date: "", role: "" };
-
-                return (
-                  <div key={v.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    {/* Card header */}
-                    <button onClick={() => setExpandedBeheer(isOpen ? null : v.id)}
-                      className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-blue-600">{v.memberships.length}</span>
-                        </div>
-                        <div>
-                          <span className="font-semibold text-gray-900 text-sm">{v.title}</span>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {v.memberships.length} vrijwilliger{v.memberships.length !== 1 ? "s" : ""}
-                            {v.applications.length > 0 && ` · ${v.applications.length} aanmelding${v.applications.length !== 1 ? "en" : ""}`}
-                            {roster && ` · rooster: ${roster.entries.length} personen`}
-                          </p>
-                        </div>
-                      </div>
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {isOpen && (
-                      <div className="border-t border-gray-100 divide-y divide-gray-100">
-
-                        {/* Vrijwilligers */}
-                        <div className="p-4 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Huidige vrijwilligers</h3>
-                            <button onClick={() => openInvite(v)} className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-2 py-1 rounded-lg">
-                              + Uitnodigen
-                            </button>
-                          </div>
-
-                          {v.memberships.length === 0 && (
-                            <p className="text-sm text-gray-400">Nog geen vrijwilligers.</p>
-                          )}
-                          {v.memberships.map((m) => (
-                            <div key={m.id} className="flex items-center justify-between py-1">
-                              <div>
-                                <span className="text-sm font-medium text-gray-800">{m.participant.name}</span>
-                                <a href={`mailto:${m.participant.email}`} className="block text-xs text-blue-500 hover:underline">{m.participant.email}</a>
-                              </div>
-                              <button onClick={() => removeMember(v.id, m.id)} className="text-xs text-red-400 hover:text-red-600 ml-4">Verwijderen</button>
-                            </div>
-                          ))}
-
-                          {/* Vrijwilliger toevoegen */}
-                          <div className="pt-2 border-t border-gray-100">
-                            <p className="text-xs font-medium text-gray-600 mb-2">Vrijwilliger handmatig toevoegen</p>
-                            <div className="flex gap-2">
-                              <input value={memberForm.name} placeholder="Naam"
-                                onChange={(e) => setAddMemberForm((prev) => ({ ...prev, [v.id]: { ...memberForm, name: e.target.value } }))}
-                                className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                              <input value={memberForm.email} placeholder="E-mail" type="email"
-                                onChange={(e) => setAddMemberForm((prev) => ({ ...prev, [v.id]: { ...memberForm, email: e.target.value } }))}
-                                className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                              <button onClick={() => addMember(v.id)} disabled={addingMember === v.id || !memberForm.name || !memberForm.email}
-                                className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
-                                {addingMember === v.id ? "…" : "Toevoegen"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Rooster */}
-                        <div className="p-4 space-y-3">
-                          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Rooster</h3>
-
-                          {!roster ? (
-                            <div className="text-center py-3">
-                              <p className="text-sm text-gray-400 mb-3">Nog geen rooster voor deze vacature.</p>
-                              <button onClick={() => createRoster(v.id, `Rooster ${v.title}`)} disabled={creatingRoster === v.id}
-                                className="text-sm px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:border-blue-400 disabled:opacity-50">
-                                {creatingRoster === v.id ? "Aanmaken…" : "Rooster aanmaken"}
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              {roster.entries.length === 0 && <p className="text-sm text-gray-400">Nog geen personen in het rooster.</p>}
-                              {roster.entries.map((e) => (
-                                <div key={e.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {e.date && (
-                                      <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded flex-shrink-0">
-                                        {new Date(e.date).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}
-                                      </span>
-                                    )}
-                                    <div className="min-w-0">
-                                      <span className="text-sm text-gray-800">{e.name}</span>
-                                      {e.role && <span className="text-xs text-gray-400 ml-2">{e.role}</span>}
-                                      {e.email && <a href={`mailto:${e.email}`} className="block text-xs text-blue-400 hover:underline">{e.email}</a>}
-                                    </div>
-                                  </div>
-                                  <button onClick={() => deleteRosterEntry(roster.id, e.id)} className="text-xs text-red-400 hover:text-red-600 ml-4 flex-shrink-0">×</button>
-                                </div>
-                              ))}
-
-                              {/* Rij toevoegen */}
-                              <div className="pt-2 grid grid-cols-2 gap-2">
-                                <input value={entryForm.name} placeholder="Naam *"
-                                  onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, name: e.target.value } }))}
-                                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                <input value={entryForm.role} placeholder="Rol / dienst"
-                                  onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, role: e.target.value } }))}
-                                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                <input type="date" value={entryForm.date}
-                                  onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, date: e.target.value } }))}
-                                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                <input value={entryForm.email} placeholder="E-mail (optioneel)" type="email"
-                                  onChange={(e) => setAddRosterEntryForm((prev) => ({ ...prev, [v.id]: { ...entryForm, email: e.target.value } }))}
-                                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                              </div>
-                              <button onClick={() => addRosterEntry(roster.id, v.id)} disabled={addingRosterEntry === v.id || !entryForm.name}
-                                className="w-full text-sm py-2 border border-gray-300 rounded-lg text-gray-700 hover:border-blue-400 disabled:opacity-50">
-                                {addingRosterEntry === v.id ? "Toevoegen…" : "+ Rij toevoegen"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+              </div>
+            ))}
+          </div>
         )}
+
       </main>
 
 
