@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateQualityWeights } from "@/lib/vacancyWeights";
+import { getAdminFromCookies } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  const adminId = await getAdminFromCookies();
+  if (!adminId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { title, category, shortDescription, whyValuable, concreteTasks } = await req.json();
 
   try {
